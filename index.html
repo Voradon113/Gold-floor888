@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JANIE · Gold Flow Floor</title>
+<style>
+  :root{
+    --bg:#0a0c0f; --panel:#13171c; --panel2:#191e25; --line:#242b34;
+    --ink:#eae8e1; --dim:#8b95a1; --faint:#565f6a;
+    --gold:#e6b53f; --gold2:#f6d478; --up:#37c08a; --down:#e56048;
+    --blue:#4f8cd0; --mono:'DejaVu Sans Mono','SF Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+    radial-gradient(1200px 500px at 80% -10%,rgba(230,181,63,.06),transparent),var(--bg);
+    color:var(--ink);font-family:'Trebuchet MS',system-ui,'Segoe UI',sans-serif;font-size:14px}
+  .wrap{max-width:1300px;margin:0 auto;padding:14px}
+  .top{display:flex;align-items:center;justify-content:space-between;
+    padding:11px 15px;background:linear-gradient(90deg,var(--panel),#161b21);
+    border:1px solid var(--line);border-radius:12px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .coin{width:30px;height:30px;border-radius:50%;flex:0 0 30px;
+    background:radial-gradient(circle at 35% 30%,#ffe9a8,var(--gold) 55%,#9c7712);
+    box-shadow:0 0 14px rgba(230,181,63,.45);display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#5c4406;font-size:14px;font-family:var(--mono)}
+  .brand b{letter-spacing:.6px;font-size:15px}
+  .brand span{color:var(--faint);font-size:12px;margin-left:2px}
+  .clock{font-family:var(--mono);color:var(--dim);font-size:13px}
+  .badge{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;
+    border:1px solid var(--line);color:var(--gold);background:rgba(230,181,63,.06)}
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .phead h2{margin:0;font-size:12px;letter-spacing:1.6px;color:var(--dim);text-transform:uppercase;font-weight:600}
+  .tag{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);color:var(--gold)}
+  .desk{display:flex;gap:12px;align-items:center;background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
+  .agent{width:46px;height:46px;flex:0 0 46px;border-radius:9px;position:relative;
+    background:repeating-linear-gradient(45deg,#1f252d,#1f252d 4px,#242c35 4px,#242c35 8px);border:1px solid var(--line)}
+  .agent::after{content:"";position:absolute;left:11px;top:9px;width:24px;height:15px;border-radius:3px;
+    background:var(--gold);box-shadow:0 0 12px rgba(230,181,63,.55)}
+  .agent::before{content:"";position:absolute;left:16px;top:27px;width:14px;height:10px;background:#3a4652;border-radius:2px}
+  .deskmeta{flex:1}
+  .deskmeta .r{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;padding:1px 0}
+  .deskmeta .r span:first-child{color:var(--faint)}
+  .working{font-family:var(--mono);font-size:10px;color:var(--up);letter-spacing:1px}
+  .biaswrap{text-align:center;padding:4px 0 2px}
+  .bignum{font-family:var(--mono);font-size:42px;font-weight:700;line-height:1}
+  .biaslabel{font-size:13px;color:var(--dim);margin-top:3px}
+  .track{height:8px;border-radius:5px;margin:10px 6px 0;
+    background:linear-gradient(90deg,var(--down),#3a4048 47%,#3a4048 53%,var(--up))}
+  .needle{position:relative;height:0}
+  .needle i{position:absolute;top:-14px;width:2px;height:16px;background:var(--gold);
+    box-shadow:0 0 8px var(--gold);transform:translateX(-1px)}
+  .scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--faint);margin:4px 6px 0}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+  th{color:var(--faint);font-weight:400;text-align:right;padding:5px 8px;font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:6px 8px;border-bottom:1px solid #191e24;text-align:right}
+  td:first-child{text-align:left}
+  tr:last-child td{border-bottom:none}
+  .z-mid td{background:rgba(230,181,63,.08)}
+  .zdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .g{background:var(--up)} .y{background:var(--gold)} .w{background:var(--faint)}
+  .price-now{color:var(--gold2);font-weight:700}
+  .heat{display:flex;flex-direction:column;gap:3px}
+  .hrow{display:flex;align-items:center;gap:8px}
+  .hk{width:46px;font-family:var(--mono);font-size:12px;color:var(--dim);text-align:right}
+  .hcell{flex:1;height:26px;border-radius:5px;display:flex;align-items:center;padding:0 9px;
+    font-family:var(--mono);font-size:11px;color:#eafff6;position:relative;overflow:hidden}
+  .hcell .oi{margin-left:auto;opacity:.9}
+  .hcell.now{outline:2px solid var(--gold);outline-offset:-2px}
+  .htag{position:absolute;left:9px;font-size:9px;letter-spacing:1px;opacity:.75}
+  .sess{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .scell{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
+  .scell.live{border-color:var(--gold);box-shadow:inset 0 0 0 1px rgba(230,181,63,.3)}
+  .scell b{display:block;font-size:12px;letter-spacing:1px}
+  .scell small{color:var(--faint);font-family:var(--mono);font-size:10px}
+  .slive{color:var(--gold);font-size:10px;font-family:var(--mono);letter-spacing:1px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--panel2);border-radius:8px;padding:10px}
+  .stat small{color:var(--faint);font-size:10px;text-transform:uppercase;display:block}
+  .stat b{font-family:var(--mono);font-size:19px;display:block;margin-top:3px}
+  .chartmeta{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-bottom:8px}
+  .chartmeta span b{color:var(--up)}
+  .chartmeta .dd b{color:var(--down)}
+  svg{display:block;width:100%;height:auto}
+  .log{font-family:var(--mono);font-size:11.5px;max-height:200px;overflow:auto}
+  .log .l{display:grid;grid-template-columns:52px 66px 1fr auto;gap:8px;padding:3px 0;border-bottom:1px solid #161b21;color:var(--dim)}
+  .log .l b{color:var(--ink)}
+  .pos{color:var(--up)} .neg{color:var(--down)}
+  .foot{margin-top:14px;color:var(--faint);font-size:11px;text-align:center;line-height:1.6}
+
+  .planbias{font-family:var(--mono);font-size:22px;font-weight:700;margin-bottom:12px}
+  .planzones{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .planrow{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.5;
+    background:var(--panel2);border-radius:8px;padding:10px 12px;border-left:3px solid var(--line)}
+  .planrow.long{border-left-color:var(--up)}
+  .planrow.short{border-left-color:var(--down)}
+  .planrow.watch{border-left-color:var(--gold)}
+  .planrow .ic{font-size:16px;flex:0 0 auto}
+  .planrow b{color:var(--gold2)}
+  .planrules{display:flex;flex-wrap:wrap;gap:8px}
+  .prule{font-size:12px;padding:5px 10px;border-radius:20px;background:rgba(229,96,72,.12);
+    color:#f0a898;border:1px solid rgba(229,96,72,.25)}
+  .full{grid-column:1 / -1}
+
+  /* MT5 */
+  .mtline{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:10px}
+  .mtline b{color:var(--dim);font-weight:400}
+  .mlbar{height:6px;border-radius:4px;background:#222831;overflow:hidden;margin-top:6px}
+  .mlbar i{display:block;height:100%;background:var(--up)}
+  .empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:10px 2px}
+  .stale{color:var(--down)!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <span class="coin">Au</span>
+      <b>JANIE · GOLD FLOW FLOOR</b><span>ตามรายใหญ่ · options-driven</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="working" id="livedot" style="font-size:11px">● …</span>
+      <span class="working" id="mt5dot" style="font-size:11px;color:var(--faint)">● MT5 —</span>
+      <span class="badge" id="sessBadge">— SESSION</span>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+  </div>
+
+    <!-- แผนวันนี้ (full) -->
+    <div class="panel full" style="border-color:rgba(230,181,63,.35);margin-top:14px">
+      <div class="phead"><h2>🎯 แผนวันนี้ · Trade Plan</h2><span class="tag" id="planUpd">—</span></div>
+      <div id="planBox">
+        <div class="planbias" id="planBias">Bias —</div>
+        <div class="planzones" id="planZones"></div>
+        <div class="planrules" id="planRules"></div>
+      </div>
+    </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="phead"><h2>🥇 Gold Flow Desk</h2><span class="tag" id="contract">GC AUG26</span></div>
+      <div class="desk">
+        <div class="agent"></div>
+        <div class="deskmeta">
+          <div class="r"><span>สถานะ</span><span class="working">● WATCHING</span></div>
+          <div class="r"><span>ราคา GC / CFD</span><span id="px">—</span></div>
+          <div class="r"><span>IV (ATM)</span><span id="iv">—</span></div>
+        </div>
+      </div>
+      <div class="biaswrap">
+        <div class="bignum" id="biasNum">+35</div>
+        <div class="biaslabel" id="biasLbl">ขาขึ้น</div>
+        <div class="track"></div>
+        <div class="needle"><i id="needle"></i></div>
+        <div class="scale"><span>-100</span><span>0</span><span>+100</span></div>
+      </div>
+      <div style="margin-top:14px">
+        <div class="phead"><h2 style="letter-spacing:1px">Zones · SD</h2><span class="tag" id="sdmeta">1SD ~59</span></div>
+        <table id="sdTable"></table>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="panel">
+        <div class="phead"><h2>🔥 OI Heatmap · Strike</h2><span class="tag" id="pcr">PCR 0.57</span></div>
+        <div class="heat" id="heat"></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><h2>🕐 Session</h2><span class="tag">เวลาไทย</span></div>
+        <div class="sess" id="sessions"></div>
+      </div>
+    </div>
+
+    <!-- Equity curve -->
+    <div class="panel full">
+      <div class="phead"><h2>📈 Equity · Balance (MT5)</h2><span class="working" id="pmwork">● —</span></div>
+      <div class="mtline" id="mtMeta"></div>
+      <div class="chartmeta">
+        <span>Balance <b id="mBal">—</b></span>
+        <span>Equity <b id="mEq">—</b></span>
+        <span class="dd">Max DD <b id="mDD">—</b></span>
+        <span>P/L วันนี้ <b id="mPL">—</b></span>
+      </div>
+      <div class="chartwrap" id="chart"></div>
+    </div>
+
+    <!-- Positions -->
+    <div class="panel full">
+      <div class="phead"><h2>📋 ออเดอร์ที่เปิดอยู่ · MT5</h2><span class="tag" id="posCount">0 ไม้</span></div>
+      <table id="posTable"></table>
+    </div>
+
+    <div class="panel">
+      <div class="phead"><h2>🛡️ Risk · PM</h2><span class="tag">exposure</span></div>
+      <div class="stats" id="risk"></div>
+      <div style="margin-top:10px">
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint)">
+          <span>Margin Level</span><span id="mlTxt">—</span>
+        </div>
+        <div class="mlbar"><i id="mlBar" style="width:0%"></i></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="phead"><h2>📜 Activity Log</h2><span class="tag" id="logTag">mock</span></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+  <div class="foot">
+    <span id="srcNote">⚠️ ข้อมูลจำลอง (mock) — ยังไม่ต่อ MT5/JANIE</span> ·
+    Bias &amp; SD = การวางตัวออปชั่น ไม่ใช่คำทำนาย · OIΔ ฟันธงซื้อ-ขายไม่ได้ · ไม่ใช่คำแนะนำการลงทุน<br>
+    🔒 จอนี้ <b>อ่านอย่างเดียว</b> — ไม่มีสิทธิ์เปิด/แก้/ปิดออเดอร์ใน MT5 · พี่เทรดเองด้วยมือทั้งหมด
+  </div>
+</div>
+<script>
+/* ================== MOCK (fallback เมื่อยังไม่ต่อ / เน็ตหลุด) ================== */
+const MOCK = {
+  contract:'GC AUG26', priceGC:4140, priceCFD:4128, iv:45.86, ivChg:+0.18,
+  bias:+35, biasLabel:'ขาขึ้น (put กระจุกใต้ราคา = พื้นรับ)',
+  sd1:59, mid:4135,
+  sd:[
+    ['+3 SD',4268,'g','สวนแรง'],['+2 SD',4207,'y','จุดสวน'],['+1 SD',4160,'w','ข้าม'],
+    ['กลาง',4135,'mid','—'],
+    ['-1 SD',4076,'w','ข้าม'],['-2 SD',4015,'y','จุดสวน'],['-3 SD',3969,'g','สวนแรง'],
+  ],
+  pcr:0.57,
+  heat:[
+    ['4200','c',3050],['4150','c',5210],['4145','c',4400],
+    ['4140','now',0],
+    ['4120','p',4296],['4100','p',3480],['4000','p',4279],['3950','p',2210],
+  ],
+  plan:{updated:'—', biasText:'Bias — · รอข้อมูลจาก JANIE',
+    zones:[{type:'watch',text:'ยังไม่มีแผนวันนี้ — ส่งภาพ QuikStrike เข้า JANIE เพื่ออัปเดต'}],
+    rules:['ห้ามสวนกำแพงหลัก','ไม่มีแผน = ไม่เข้า']},
+  sessions:[['ASIA','07–14','asia'],['LONDON','14–21','london'],['NY','19–03','ny']],
+  risk:[['พอร์ตรวม','—'],['P/L วันนี้','—'],['Drawdown','—'],['Exposure','—']],
+  equity:[210,208,213,206,217,214,225,231,222,236,240,233,247,244,238,255,251,268,262,281,275,290,308],
+  balance:0, equityNow:0, plToday:0, maxDD:'—',
+  positions:[],
+  mt5:{connected:false},
+  log:[
+    ['SYS','BOOT','เปิดจอ · รอข้อมูลจริงจาก MT5 + JANIE','—'],
+  ]
+};
+
+/* ================== ENDPOINT ==================
+   วาง URL /exec ของ Apps Script ตรงนี้ (ดู README ขั้นตอนที่ 3)
+   หรือทดสอบเร็วๆ โดยเปิดไฟล์แบบ index.html?api=https://script.google.com/.../exec
+=============================================== */
+const DEFAULT_ENDPOINT = "PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE";
+const ENDPOINT = (new URLSearchParams(location.search).get('api') || DEFAULT_ENDPOINT).trim();
+
+let DATA = JSON.parse(JSON.stringify(MOCK));
+let LIVE = false;
+
+/* ---------- merge payload จาก Apps Script → DATA ---------- */
+function mergeLive(p){
+  if(!p) return;
+  DATA.contract = p.contract || DATA.contract;
+  if(typeof p.pcr === 'number' && p.pcr > 0) DATA.pcr = p.pcr;
+
+  if(p.callWalls && p.callWalls.length) DATA.callWalls = p.callWalls.map(w=>[String(w[0]),Number(w[1]),Number(w[2])]);
+  if(p.putWalls  && p.putWalls.length)  DATA.putWalls  = p.putWalls.map(w=>[String(w[0]),Number(w[1]),Number(w[2])]);
+
+  const iv = p.intraday || {};
+
+  /* heatmap + marker ราคาปัจจุบัน */
+  if(p.heat && p.heat.length){
+    let rows = p.heat.map(h=>[String(h[0]), h[1], Number(h[2])]);
+    const px = num(iv.priceGC) != null ? num(iv.priceGC) : DATA.priceGC;
+    if(px){
+      let out=[], placed=false;
+      for(let i=0;i<rows.length;i++){
+        if(!placed && Number(rows[i][0]) < px){ out.push([String(Math.round(px)),'now',0]); placed=true; }
+        out.push(rows[i]);
+      }
+      if(!placed) out.push([String(Math.round(px)),'now',0]);
+      rows = out;
+    }
+    DATA.heat = rows;
+  }
+
+  /* ค่าจาก tab input (JANIE เขียน) */
+  if(num(iv.priceGC)!=null)  DATA.priceGC  = num(iv.priceGC);
+  if(num(iv.priceCFD)!=null) DATA.priceCFD = num(iv.priceCFD);
+  if(num(iv.iv)!=null)       DATA.iv       = num(iv.iv);
+  if(num(iv.ivChg)!=null)    DATA.ivChg    = num(iv.ivChg);
+  if(num(iv.bias)!=null)     DATA.bias     = num(iv.bias);
+  if(iv.biasLabel)           DATA.biasLabel= String(iv.biasLabel);
+  if(num(iv.sd1)!=null)      DATA.sd1      = num(iv.sd1);
+  if(num(iv.mean)!=null)     DATA.mid      = num(iv.mean);
+
+  /* สร้างตาราง SD ใหม่จาก mean + sd1 ถ้ามีค่าจริง */
+  if(num(iv.mean)!=null && num(iv.sd1)!=null){
+    const m = num(iv.mean), s = num(iv.sd1);
+    DATA.sd = [
+      ['+3 SD', m+3*s, 'g','สวนแรง'], ['+2 SD', m+2*s, 'y','จุดสวน'], ['+1 SD', m+s, 'w','ข้าม'],
+      ['กลาง',  m, 'mid','—'],
+      ['-1 SD', m-s, 'w','ข้าม'],   ['-2 SD', m-2*s, 'y','จุดสวน'], ['-3 SD', m-3*s, 'g','สวนแรง'],
+    ];
+  }
+
+  /* แผนวันนี้ */
+  if(iv.plan){
+    try{ DATA.plan = (typeof iv.plan==='string') ? JSON.parse(iv.plan) : iv.plan; }catch(e){}
+  }
+  if(iv.planBias){ DATA.plan = DATA.plan||{}; DATA.plan.biasText = String(iv.planBias); DATA.plan.updated = p.updated; }
+  if(iv.planText){ DATA.plan = DATA.plan||{}; DATA.plan.updated = p.updated;
+    DATA.plan.zones = [{type:'watch', text:String(iv.planText)}]; }
+  if(num(iv.mean)!=null){
+    DATA.plan = DATA.plan||{};
+    DATA.plan.rules = (DATA.plan.rules||[]).filter(r=>r.indexOf('Mean')<0);
+    DATA.plan.rules.push('เกิน Mean '+num(iv.mean)+' ลดของ');
+  }
+
+  /* ---------- MT5 (พอร์ตจริง) ---------- */
+  const m = p.mt5 || {};
+  DATA.mt5 = m;
+  if(m.connected){
+    if(num(m.balance)!=null)  DATA.balance   = num(m.balance);
+    if(num(m.equity)!=null)   DATA.equityNow = num(m.equity);
+    if(num(m.plToday)!=null)  DATA.plToday   = num(m.plToday);
+    if(m.maxDD!=null && m.maxDD!=='') DATA.maxDD = (typeof m.maxDD==='number') ? m.maxDD.toFixed(2)+'%' : String(m.maxDD);
+    if(m.curve && m.curve.length > 1) DATA.equity = m.curve.map(Number);
+    else if(num(m.equity)!=null)      DATA.equity = [num(m.balance!=null?m.balance:m.equity), num(m.equity)];
+    DATA.positions = Array.isArray(m.positions) ? m.positions : [];
+
+    const expo = num(m.exposure);
+    DATA.risk = [
+      ['พอร์ตรวม (Balance)', money(DATA.balance)],
+      ['P/L วันนี้', (DATA.plToday>=0?'+':'-')+money(Math.abs(DATA.plToday)), DATA.plToday>=0?'pos':'neg'],
+      ['Drawdown', DATA.maxDD],
+      ['Exposure', expo!=null ? expo.toFixed(1)+'%' : '—'],
+    ];
+  }
+
+  if(Array.isArray(p.log) && p.log.length) DATA.log = p.log;
+}
+
+/* ---------- helpers ---------- */
+const $  = id => document.getElementById(id);
+const fmt = n => Math.round(Number(n)||0).toLocaleString();
+const num = v => (v===null || v===undefined || v==='' || isNaN(Number(v))) ? null : Number(v);
+const money = n => '$' + (Number(n)||0).toLocaleString(undefined,{maximumFractionDigits:0});
+function ageText(iso){
+  if(!iso) return '—';
+  const t = new Date(iso).getTime();
+  if(isNaN(t)) return String(iso);
+  const s = Math.max(0, Math.round((Date.now()-t)/1000));
+  if(s < 60) return s+' วิที่แล้ว';
+  if(s < 3600) return Math.round(s/60)+' นาทีที่แล้ว';
+  return Math.round(s/3600)+' ชม.ที่แล้ว';
+}
+function isStale(iso, maxSec){
+  const t = new Date(iso).getTime();
+  if(isNaN(t)) return true;
+  return (Date.now()-t)/1000 > maxSec;
+}
+
+/* ---------- fetch ---------- */
+async function loadLive(){
+  if(!ENDPOINT || ENDPOINT.indexOf('PASTE_') === 0){ setStatus(false, null, 'ยังไม่ได้ใส่ URL'); return; }
+  try{
+    const res = await fetch(ENDPOINT + (ENDPOINT.indexOf('?')<0?'?':'&') + 't=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) throw new Error('http '+res.status);
+    const p = await res.json();
+    DATA = JSON.parse(JSON.stringify(MOCK));   // reset แล้ว merge ทับ (กันค่าค้าง)
+    mergeLive(p);
+    LIVE = true;
+    renderAll();
+    setStatus(true, p.updated);
+    setMt5Status(p.mt5 || {});
+  }catch(err){
+    console.warn('live fetch failed → ใช้ mock:', err);
+    LIVE = false;
+    setStatus(false, null, err.message);
+    setMt5Status({connected:false});
+  }
+}
+
+function setStatus(ok, updated, note){
+  const el = $('livedot');
+  el.textContent = ok ? '● LIVE' : '● MOCK';
+  el.style.color = ok ? 'var(--up)' : 'var(--faint)';
+  el.title = ok ? ('อัปเดต: '+(updated||'')) : ('ยังไม่ต่อ: '+(note||''));
+  $('srcNote').innerHTML = ok
+    ? '🟢 ข้อมูลจริง (LIVE) · อัปเดตล่าสุด '+ageText(updated)
+    : '⚠️ ข้อมูลจำลอง (mock) — ยังไม่ต่อ endpoint'+(note?' ('+note+')':'');
+  $('logTag').textContent = ok ? 'live' : 'mock';
+}
+
+function setMt5Status(m){
+  const el = $('mt5dot'), pm = $('pmwork');
+  const stale = m.connected && isStale(m.updated, 300);
+  if(m.connected && !stale){
+    el.textContent = '● MT5 LIVE';  el.style.color = 'var(--up)';
+    pm.textContent = '● LIVE';      pm.style.color = 'var(--up)';
+  }else if(m.connected && stale){
+    el.textContent = '● MT5 ค้าง';  el.style.color = 'var(--down)';
+    pm.textContent = '● STALE';     pm.style.color = 'var(--down)';
+  }else{
+    el.textContent = '● MT5 —';     el.style.color = 'var(--faint)';
+    pm.textContent = '● ไม่ต่อ';    pm.style.color = 'var(--faint)';
+  }
+  el.title = m.connected ? ('EA ส่งล่าสุด: '+ageText(m.updated)) : 'ยังไม่มีข้อมูลจาก EA';
+
+  const bits = [];
+  if(m.account) bits.push('<b>บัญชี</b> '+m.account);
+  if(m.server)  bits.push('<b>เซิร์ฟเวอร์</b> '+m.server);
+  if(m.currency)bits.push('<b>สกุล</b> '+m.currency);
+  if(m.symbol)  bits.push('<b>สัญลักษณ์</b> '+m.symbol);
+  if(m.bid)     bits.push('<b>Bid</b> '+Number(m.bid).toFixed(2));
+  bits.push('<b>EA ส่งล่าสุด</b> <span class="'+(stale?'stale':'')+'">'+ageText(m.updated)+'</span>');
+  $('mtMeta').innerHTML = m.connected ? bits.join(' · ') : '<span>ยังไม่มีข้อมูลจาก MT5 — ติดตั้ง EA แล้วเปิดกราฟทิ้งไว้</span>';
+}
+
+/* ---------- render ---------- */
+function renderAll(){
+  $('contract').textContent = DATA.contract;
+  $('px').textContent  = fmt(DATA.priceGC)+' / '+fmt(DATA.priceCFD);
+  $('iv').textContent  = Number(DATA.iv).toFixed(2)+' ('+(DATA.ivChg>=0?'+':'')+DATA.ivChg+')';
+  $('sdmeta').textContent = '1SD ~'+DATA.sd1;
+  $('pcr').textContent = 'PCR '+Number(DATA.pcr).toFixed(2);
+
+  const b = Number(DATA.bias);
+  $('biasNum').textContent = (b>=0?'+':'')+b;
+  $('biasNum').style.color = b>15?'var(--up)':b<-15?'var(--down)':'var(--gold)';
+  $('biasLbl').textContent = DATA.biasLabel;
+  $('needle').style.left = ((b+100)/2)+'%';
+
+  /* SD */
+  $('sdTable').innerHTML = '<tr><th>เส้น</th><th>ราคา</th><th>โซน</th></tr>' +
+    DATA.sd.map(r=>{
+      const cls = r[2]==='mid' ? 'z-mid' : '';
+      const dot = r[2]==='mid' ? '' : '<span class="zdot '+r[2]+'"></span>';
+      const price = r[2]==='mid' ? '<span class="price-now">'+fmt(r[1])+'</span>' : fmt(r[1]);
+      return '<tr class="'+cls+'"><td>'+r[0]+'</td><td>'+price+'</td><td style="text-align:right">'+dot+r[3]+'</td></tr>';
+    }).join('');
+
+  /* Heatmap */
+  const maxOI = Math.max(1, ...DATA.heat.map(h=>Number(h[2])||0));
+  $('heat').innerHTML = DATA.heat.map(h=>{
+    if(h[1]==='now')
+      return '<div class="hrow"><span class="hk">'+h[0]+'</span>'+
+        '<div class="hcell now" style="background:repeating-linear-gradient(90deg,#2a313a,#2a313a 6px,#222831 6px,#222831 12px);color:var(--gold2)">'+
+        '<span class="htag">◄ ราคาปัจจุบัน</span></div></div>';
+    const intensity = 0.25 + 0.75*((Number(h[2])||0)/maxOI);
+    const col = h[1]==='c' ? 'rgba(55,192,138,'+intensity+')' : 'rgba(229,96,72,'+intensity+')';
+    const label = h[1]==='c' ? 'CALL' : 'PUT';
+    return '<div class="hrow"><span class="hk">'+h[0]+'</span>'+
+      '<div class="hcell" style="background:'+col+'"><span class="htag">'+label+'</span>'+
+      '<span class="oi">OI '+fmt(h[2])+'</span></div></div>';
+  }).join('');
+
+  /* Plan */
+  const pl = DATA.plan || {};
+  $('planUpd').textContent  = pl.updated || '—';
+  $('planBias').textContent = pl.biasText || ('Bias '+(b>=0?'+':'')+b+' · '+DATA.biasLabel);
+  $('planBias').style.color = b>15?'var(--up)':b<-15?'var(--down)':'var(--gold)';
+  $('planZones').innerHTML = (pl.zones||[]).map(z=>{
+    const ic = z.type==='long'?'🟢':z.type==='short'?'🔴':'🟡';
+    return '<div class="planrow '+(z.type||'watch')+'"><span class="ic">'+ic+'</span><div>'+z.text+'</div></div>';
+  }).join('') || '<div class="planrow watch"><span class="ic">🟡</span><div>ยังไม่มีแผนวันนี้</div></div>';
+  $('planRules').innerHTML = (pl.rules||[]).map(r=>'<span class="prule">⚠️ '+r+'</span>').join('');
+
+  /* Sessions */
+  const hr = new Date().getHours();
+  const liveSess = k => k==='asia' ? (hr>=7&&hr<14) : k==='london' ? (hr>=14&&hr<21) : (hr>=19||hr<3);
+  $('sessions').innerHTML = DATA.sessions.map(s=>{
+    const on = liveSess(s[2]);
+    return '<div class="scell '+(on?'live':'')+'"><b>'+s[0]+'</b><small>'+s[1]+'</small>'+
+      '<div class="slive">'+(on?'● LIVE':'—')+'</div></div>';
+  }).join('');
+  $('sessBadge').textContent = (DATA.sessions.find(s=>liveSess(s[2]))||['','—'])[0]+' SESSION';
+
+  /* Risk */
+  $('risk').innerHTML = DATA.risk.map(r=>{
+    const c = r[2]==='pos'?'var(--up)':r[2]==='neg'?'var(--down)':'var(--ink)';
+    return '<div class="stat"><small>'+r[0]+'</small><b style="color:'+c+'">'+r[1]+'</b></div>';
+  }).join('');
+
+  const ml = num((DATA.mt5||{}).marginLevel);
+  $('mlTxt').textContent = ml!=null && ml>0 ? ml.toFixed(0)+'%' : '—';
+  const w = ml!=null && ml>0 ? Math.max(2, Math.min(100, ml/20)) : 0;   // 2000% = เต็มบาร์
+  $('mlBar').style.width = w+'%';
+  $('mlBar').style.background = (ml!=null && ml>0 && ml<300) ? 'var(--down)' : (ml!=null && ml<800 ? 'var(--gold)' : 'var(--up)');
+
+  /* Positions */
+  const ps = DATA.positions || [];
+  $('posCount').textContent = ps.length+' ไม้';
+  if(!ps.length){
+    $('posTable').innerHTML = '<tr><td class="empty" colspan="7">'+
+      (((DATA.mt5||{}).connected) ? 'ไม่มีออเดอร์เปิดอยู่ · ว่างพอร์ต' : 'รอข้อมูลจาก MT5 EA')+'</td></tr>';
+  }else{
+    $('posTable').innerHTML =
+      '<tr><th>สัญลักษณ์</th><th>ฝั่ง</th><th>Lot</th><th>ราคาเข้า</th><th>ราคาปัจจุบัน</th><th>SL / TP</th><th>P/L</th></tr>'+
+      ps.map(p=>{
+        const side = String(p.type||'').toUpperCase();
+        const sc = side==='BUY' ? 'pos' : 'neg';
+        const pnl = Number(p.profit)||0;
+        const sl = num(p.sl) ? Number(p.sl).toFixed(2) : '—';
+        const tp = num(p.tp) ? Number(p.tp).toFixed(2) : '—';
+        return '<tr><td>'+(p.symbol||'—')+'</td>'+
+          '<td class="'+sc+'">'+side+'</td>'+
+          '<td>'+(Number(p.volume)||0).toFixed(2)+'</td>'+
+          '<td>'+(Number(p.open)||0).toFixed(2)+'</td>'+
+          '<td>'+(Number(p.price)||0).toFixed(2)+'</td>'+
+          '<td style="color:var(--faint)">'+sl+' / '+tp+'</td>'+
+          '<td class="'+(pnl>=0?'pos':'neg')+'">'+(pnl>=0?'+':'-')+money(Math.abs(pnl))+'</td></tr>';
+      }).join('');
+  }
+
+  /* Log */
+  $('log').innerHTML = DATA.log.map(l=>{
+    const c = l[4]==='pos'?'pos':l[4]==='neg'?'neg':'';
+    return '<div class="l"><span>'+l[0]+'</span><b>'+l[1]+'</b><span>'+l[2]+'</span><span class="'+c+'">'+(l[3]||'')+'</span></div>';
+  }).join('');
+
+  /* Equity curve (SVG มือเปล่า + แรเงา drawdown) */
+  const d = (DATA.equity && DATA.equity.length>1) ? DATA.equity.map(Number) : [0,0];
+  const W=1000, H=200, pad=8;
+  const min=Math.min(...d), max=Math.max(...d), rng=(max-min)||1;
+  const x=i=>pad+i*(W-2*pad)/((d.length-1)||1);
+  const y=v=>pad+(1-(v-min)/rng)*(H-2*pad);
+  let peak=-Infinity;
+  const dd=d.map(v=>{ peak=Math.max(peak,v); return v<peak; });
+  const line=d.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const area=line+' L'+x(d.length-1)+' '+(H-pad)+' L'+x(0)+' '+(H-pad)+' Z';
+  let bands='', start=null;
+  for(let i=0;i<d.length;i++){
+    if(dd[i] && start===null) start=i;
+    if((!dd[i] || i===d.length-1) && start!==null){
+      const a=x(start), bx=x(dd[i]?i:Math.max(start,i-1));
+      bands+='<rect x="'+a.toFixed(1)+'" y="'+pad+'" width="'+Math.max(0,bx-a).toFixed(1)+'" height="'+(H-2*pad)+'" fill="rgba(229,96,72,.10)"/>';
+      start=null;
+    }
+  }
+  const last=d[d.length-1], up=last>=d[0];
+  const stroke=up?'var(--up)':'var(--down)';
+  $('chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+
+    '<defs><linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0" stop-color="'+(up?'rgba(55,192,138,.22)':'rgba(229,96,72,.22)')+'"/>'+
+    '<stop offset="1" stop-color="rgba(0,0,0,0)"/></linearGradient></defs>'+
+    bands+
+    '<path d="'+area+'" fill="url(#gArea)"/>'+
+    '<path d="'+line+'" fill="none" stroke="'+stroke+'" stroke-width="2.2" stroke-linejoin="round"/>'+
+    '<circle cx="'+x(d.length-1).toFixed(1)+'" cy="'+y(last).toFixed(1)+'" r="3.5" fill="'+stroke+'"/>'+
+    '</svg>';
+
+  $('mBal').textContent = money(DATA.balance);
+  $('mEq').textContent  = money(DATA.equityNow);
+  $('mDD').textContent  = DATA.maxDD;
+  $('mPL').textContent  = (DATA.plToday>=0?'+':'-')+money(Math.abs(DATA.plToday));
+  $('mPL').style.color  = DATA.plToday>=0 ? 'var(--up)' : 'var(--down)';
+}
+
+/* ---------- boot ---------- */
+renderAll();
+setStatus(false, null, 'กำลังต่อ…');
+loadLive();
+setInterval(loadLive, 30000);   // ดึงค่าจริงทุก 30 วิ
+setInterval(()=>{ $('clock').textContent = new Date().toLocaleTimeString('th-TH'); }, 1000);
+</script>
+</body>
+</html>
