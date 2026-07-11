@@ -302,22 +302,28 @@ function mergeMt5(m){
   if(Array.isArray(m.curve)) DATA.curve=m.curve.map(Number).filter(v=>v>0);
 }
 
-async function load(){
-  let ok=false, upd=null;
+let JP=null, MP=null, jOk=false;
+function apply(){
+  DATA=JSON.parse(JSON.stringify(BLANK));
+  if(JP) mergeJanie(JP);
+  if(MP) mergeMt5(MP);
+  render(); status(jOk, JP?JP.updated:null);
+}
+async function loadJanie(){
   try{
     const r=await fetch(ENDPOINT+(ENDPOINT.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+    JP=await r.json(); jOk=true;
+  }catch(e){ jOk=false; console.warn('JANIE:',e); }
+  apply();
+}
+async function loadMt5(){
+  if(!ENDPOINT_MT5) return;
+  try{
+    const r=await fetch(ENDPOINT_MT5+(ENDPOINT_MT5.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
     const p=await r.json();
-    DATA=JSON.parse(JSON.stringify(BLANK));
-    mergeJanie(p); ok=true; upd=p.updated;
-  }catch(e){ console.warn('JANIE:',e); }
-  if(ENDPOINT_MT5){
-    try{
-      const r=await fetch(ENDPOINT_MT5+(ENDPOINT_MT5.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
-      const p=await r.json();
-      if(p&&p.mt5) mergeMt5(p.mt5);
-    }catch(e){ console.warn('MT5:',e); }
-  }
-  render(); status(ok,upd);
+    if(p&&p.mt5) MP=p.mt5;
+  }catch(e){ console.warn('MT5:',e); }
+  apply();
 }
 
 function status(ok,upd){
@@ -498,8 +504,9 @@ function timeline(){
   $('sessPill').textContent = cur?cur[0]:'ปิดตลาด';
 }
 
-render(); load();
-setInterval(load,30000);
+render(); loadJanie(); loadMt5();
+setInterval(loadMt5, 10000);
+setInterval(loadJanie, 60000);
 setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');},1000);
 </script>
 </body>
