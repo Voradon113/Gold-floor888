@@ -363,7 +363,11 @@ function render(){
 
 function ladder(){
   const P=DATA.plan||{}, px=DATA.priceGC, mean=DATA.mean, bsl=P.bsl, ssl=P.ssl;
-  const pts=[px,mean,bsl,ssl].concat(P.targets||[]).filter(v=>num(v)!=null);
+  const walls=(DATA.heat||[]).filter(h=>h[1]!=='now');
+  const wUp = px!=null ? walls.filter(h=>h[0]>px).sort((a,b)=>a[0]-b[0])[0] : null;
+  const wDn = px!=null ? walls.filter(h=>h[0]<px).sort((a,b)=>b[0]-a[0])[0] : null;
+  const pts=[px,mean,bsl,ssl].concat(P.targets||[])
+    .concat(wUp?[wUp[0]]:[]).concat(wDn?[wDn[0]]:[]).filter(v=>num(v)!=null);
   const el=$('ladder');
   $('zoneChip').textContent = P.playZone||'—';
   if(pts.length<2){ el.innerHTML='<text x="150" y="145" fill="#4e5763" font-size="11" text-anchor="middle" font-family="monospace">รอข้อมูลจาก JANIE</text>'; return; }
@@ -380,6 +384,9 @@ function ladder(){
   (P.targets||[]).forEach((t,i)=>{ if(num(t)!=null&&t!==mean) s+=line(t,'#8a94a0','','เป้า '+(i+1),true); });
   if(mean) s+=line(mean,'#e8b73f','','MEAN · แกนกลาง',true);
   if(ssl)  s+=line(ssl,'#2fd18d','','SSL · กำแพงล่าง');
+  const wl=w=>'กำแพงใกล้สุด · '+(w[1]==='c'?'CALL':'PUT')+' '+(Math.round(w[2]/100)/10)+'k';
+  if(wUp && wUp[0]!==bsl) s+=line(wUp[0],'#8fb8e8','',wl(wUp),true);
+  if(wDn && wDn[0]!==ssl) s+=line(wDn[0],'#8fb8e8','',wl(wDn),true);
   if(px!=null){
     const y=Y(px);
     s+='<rect x="0" y="'+(y-11)+'" width="300" height="22" fill="rgba(255,217,122,.08)"/>'+
