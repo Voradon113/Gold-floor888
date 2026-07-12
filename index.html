@@ -150,6 +150,14 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .tllbl{position:absolute;top:34px;font:600 9px var(--mono);color:var(--faint);transform:translateX(-50%)}
 .seglbl{position:absolute;top:16px;font:700 9px var(--mono);color:#0b0f13;letter-spacing:1px;transform:translateX(-50%)}
 
+.basiscard{background:linear-gradient(135deg,var(--accentSoft),var(--card) 55%)}
+.basiswrap{display:flex;flex-direction:column;gap:8px}
+.basisnum{font:800 42px var(--mono);line-height:1;letter-spacing:.5px}
+.basismeta{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font:600 12px var(--mono);color:var(--dim)}
+.basismeta b{color:var(--ink);margin-left:5px}
+.basisstate{margin-left:auto;color:var(--faint);font-size:11px}
+@media(max-width:520px){.basisstate{margin-left:0;flex-basis:100%}}
+
 .foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px;line-height:1.7}
 </style>
 </head>
@@ -177,6 +185,18 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
       <span class="phase" id="planPhase"></span>
     </div>
     <div class="pcards" id="planCards"></div>
+  </div></div>
+
+  <div class="grid"><div class="card basiscard">
+    <h2>Basis · XAUUSD − GC <span class="chip" id="basisSrc">—</span></h2>
+    <div class="basiswrap">
+      <div class="basisnum" id="basisNum">—</div>
+      <div class="basismeta">
+        <span>XAUUSD<b id="bXau">—</b></span>
+        <span>GC<b id="bGc">—</b></span>
+        <span class="basisstate" id="basisState">รอ EA ส่งราคา</span>
+      </div>
+    </div>
   </div></div>
 
   <div class="grid g3">
@@ -533,6 +553,34 @@ render(); loadJanie(); loadMt5();
 setInterval(loadMt5, 10000);
 setInterval(loadJanie, 60000);
 setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');},1000);
+</script>
+<script>
+/* Basis (XAUUSD − GC) · realtime tile — reads globals MP (raw MT5 payload) / DATA. Non-invasive: no existing logic touched.
+   GC futures realtime isn't available via any free TradingView embed ("only available on TradingView"), so basis is computed
+   here from XAUUSD (MT5 EA) − GC (EA gold-futures if the broker has it, else JANIE priceGC). */
+(function(){
+  function n(v){return (v===null||v===undefined||v===''||isNaN(Number(v)))?null:Number(v);}
+  function f2(v){return v==null?'—':Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function tick(){
+    var el=document.getElementById('basisNum'); if(!el) return;
+    var mp=(typeof MP!=='undefined'&&MP)?MP:null;
+    var xau = mp ? (n(mp.xau)!=null?n(mp.xau):n(mp.xauusd)) : null;
+    var gc  = mp ? (n(mp.gcf)!=null?n(mp.gcf):(n(mp.gcFut)!=null?n(mp.gcFut):n(mp.gc))) : null;
+    var gcSrc='MT5';
+    if(gc==null && typeof DATA!=='undefined' && DATA){ gc=n(DATA.priceGC); if(gc!=null) gcSrc='JANIE'; }
+    document.getElementById('bXau').textContent=f2(xau);
+    document.getElementById('bGc').textContent =f2(gc);
+    var basis=(xau!=null&&gc!=null)?(xau-gc):(mp&&n(mp.basis)!=null?n(mp.basis):null);
+    var srcEl=document.getElementById('basisSrc'), stEl=document.getElementById('basisState');
+    if(basis==null){ el.textContent='—'; el.style.color='var(--faint)';
+      srcEl.textContent='—'; stEl.textContent=(xau==null?'รอ EA ส่ง XAUUSD':'รอราคา GC'); return; }
+    el.textContent=(basis>=0?'+':'−')+Math.abs(basis).toFixed(2);
+    el.style.color=basis>=0?'var(--up)':'var(--down)';
+    srcEl.textContent='GC: '+gcSrc;
+    stEl.textContent=(basis>=0?'XAUUSD พรีเมียมเหนือ GC':'XAUUSD ดิสเคานต์ต่ำกว่า GC');
+  }
+  setInterval(tick,1000); tick();
+})();
 </script>
 </body>
 </html>
