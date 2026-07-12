@@ -564,7 +564,13 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   function tick(){
     var el=document.getElementById('basisNum'); if(!el) return;
     var mp=(typeof MP!=='undefined'&&MP)?MP:null;
-    var xau = mp ? (n(mp.xau)!=null?n(mp.xau):n(mp.xauusd)) : null;
+    var xau=null;
+    if(mp){
+      if(n(mp.xau)!=null) xau=n(mp.xau);                                   // ราคา XAUUSD ชัดเจน (ถ้ามี)
+      else if(n(mp.bid)!=null&&n(mp.ask)!=null) xau=(n(mp.bid)+n(mp.ask))/2; // mid จาก bid/ask ที่ EA ส่ง
+      else if(n(mp.bid)!=null) xau=n(mp.bid);
+      else if(n(mp.xauusd)!=null) xau=n(mp.xauusd);
+    }
     var gc  = mp ? (n(mp.gcf)!=null?n(mp.gcf):(n(mp.gcFut)!=null?n(mp.gcFut):n(mp.gc))) : null;
     var gcSrc='MT5';
     if(gc==null && typeof DATA!=='undefined' && DATA){ gc=n(DATA.priceGC); if(gc!=null) gcSrc='JANIE'; }
