@@ -612,6 +612,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(mp){ if(n(mp.gcf)!=null)return n(mp.gcf); if(n(mp.gcFut)!=null)return n(mp.gcFut); if(n(mp.gc)!=null)return n(mp.gc); }
     if(typeof DATA!=='undefined'&&DATA&&n(DATA.priceGC)!=null) return n(DATA.priceGC);
     return null; }
+  function candlesOf(mp){ return (mp&&Array.isArray(mp.candles)&&mp.candles.length>=2)?mp.candles:null; }
   var ticks=[], lastSample=0;
   function render(){
     var svg=document.getElementById('sdxChart'); if(!svg) return;
@@ -619,10 +620,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var xau=curXau(mp), gc=curGc(mp);
     var basis=(xau!=null&&gc!=null)?(xau-gc):null;
     document.getElementById('sdxBasis').textContent='basis '+(basis!=null?((basis>=0?'+':'−')+Math.abs(basis).toFixed(2)):'—');
-    if(xau==null){ svg.innerHTML=txt(350,160,'รอราคา XAUUSD จาก MT5','var(--faint)');
+    var cd=candlesOf(mp);
+    if(xau==null && !cd){ svg.innerHTML=txt(350,160,'รอราคา XAUUSD จาก MT5','var(--faint)');
       document.getElementById('sdxNote').textContent='รอ EA (bid ของ '+((mp&&mp.symbol)||'XAUUSD')+')'; return; }
-    var now=Date.now();
-    if(now-lastSample>4000){ ticks.push(xau); if(ticks.length>150) ticks.shift(); lastSample=now; }
+    if(xau!=null){ var now=Date.now(); if(now-lastSample>4000){ ticks.push(xau); if(ticks.length>150) ticks.shift(); lastSample=now; } }
     // ระดับจาก JANIE (GC) → XAUUSD (+basis; ถ้ายังไม่มี basis ใช้ค่าดิบ)
     var P=(typeof DATA!=='undefined'&&DATA&&DATA.plan)?DATA.plan:{};
     var add = basis!=null? basis : 0;
@@ -633,33 +634,61 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(n(P.ssl)!=null) levels.push([n(P.ssl)+add,'SSL · แนวรับ','var(--up)']);
     if(Array.isArray(P.targets)) P.targets.forEach(function(t,i){ if(n(t)!=null&&n(t)!==mean) levels.push([n(t)+add,'เป้า '+(i+1),'var(--dim)']); });
     var W=700,H=320,padT=12,padB=14,xL=46,xR=W-8;
-    var prices=levels.map(function(l){return l[0];}).concat(ticks); prices.push(xau);
-    prices=prices.filter(function(v){return v!=null&&!isNaN(v);});
-    var lo=Math.min.apply(null,prices), hi=Math.max.apply(null,prices);
-    var pad=(hi-lo)*0.08||5; lo-=pad; hi+=pad;
+    var lo,hi;
+    if(cd){                         // scale ตามแท่งเทียน (ราคาที่วิ่งจริง) + ดึงเฉพาะ level ที่อยู่ใกล้เข้ามา
+      var cp=[]; cd.forEach(function(c){ var h=n(c[2]),l=n(c[3]); if(h!=null)cp.push(h); if(l!=null)cp.push(l); });
+      if(xau!=null) cp.push(xau);
+      lo=Math.min.apply(null,cp); hi=Math.max.apply(null,cp);
+      var rng=(hi-lo)||5;
+      levels.forEach(function(l){ if(l[0]>=lo-rng*0.5 && l[0]<=hi+rng*0.5){ lo=Math.min(lo,l[0]); hi=Math.max(hi,l[0]); } });
+      var pd=(hi-lo)*0.12||5; lo-=pd; hi+=pd;
+    } else {                        // ไม่มีแท่งเทียน: scale ครอบทุก level + เส้นสด
+      var prices=levels.map(function(l){return l[0];}).concat(ticks);
+      if(xau!=null) prices.push(xau);
+      prices=prices.filter(function(v){return v!=null&&!isNaN(v);});
+      lo=Math.min.apply(null,prices); hi=Math.max.apply(null,prices);
+      var pd2=(hi-lo)*0.08||5; lo-=pd2; hi+=pd2;
+    }
     var Y=function(p){ return padT+(1-(p-lo)/((hi-lo)||1))*(H-padT-padB); };
-    var X=function(i,m){ return xL+(m<=1?(xR-xL):i*(xR-xL)/(m-1)); };
     var s='';
-    levels.forEach(function(l){
-      var y=Y(l[0]);
-      s+='<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+l[2]+'" stroke-width="1.3" stroke-dasharray="6 4" opacity=".85"/>';
-      s+='<text x="'+(xL+3)+'" y="'+(y-4).toFixed(1)+'" fill="'+l[2]+'" font-size="10" font-family="monospace">'+l[1]+'</text>';
-      s+='<text x="'+xR+'" y="'+(y-4).toFixed(1)+'" fill="'+l[2]+'" font-size="11" font-family="monospace" text-anchor="end" font-weight="700">'+fmt(l[0])+'</text>';
-    });
-    if(ticks.length>=2){
-      var d=ticks.map(function(p,i){return (i?'L':'M')+X(i,ticks.length).toFixed(1)+' '+Y(p).toFixed(1);}).join(' ');
+    // แท่งเทียนจริง (ถ้ามี) หรือ เส้นราคาสด (fallback)
+    if(cd){
+      var m=cd.length, cw=Math.max(1.5,(xR-xL)/m*0.62);
+      for(var i=0;i<m;i++){
+        var c=cd[i], o=n(c[1]),h=n(c[2]),l=n(c[3]),cl=n(c[4]);
+        if(o==null||h==null||l==null||cl==null) continue;
+        var x=xL+(i+0.5)*(xR-xL)/m, up=cl>=o, col=up?'var(--up)':'var(--down)';
+        s+='<line x1="'+x.toFixed(1)+'" y1="'+Y(h).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+Y(l).toFixed(1)+'" stroke="'+col+'" stroke-width="1"/>';
+        var yo=Y(o),yc0=Y(cl),top=Math.min(yo,yc0),bh=Math.max(1,Math.abs(yo-yc0));
+        s+='<rect x="'+(x-cw/2).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+col+'" opacity=".92"/>';
+      }
+    } else if(ticks.length>=2){
+      var d=ticks.map(function(p,i){var xx=xL+(ticks.length<=1?(xR-xL):i*(xR-xL)/(ticks.length-1));return (i?'L':'M')+xx.toFixed(1)+' '+Y(p).toFixed(1);}).join(' ');
       s+='<path d="'+d+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>';
     }
-    var yc=Y(xau);
-    s+='<line x1="'+xL+'" y1="'+yc.toFixed(1)+'" x2="'+xR+'" y2="'+yc.toFixed(1)+'" stroke="var(--accent)" stroke-width="1" opacity=".35"/>';
-    s+='<circle cx="'+xR+'" cy="'+yc.toFixed(1)+'" r="3.5" fill="var(--accent)"/>';
-    s+='<rect x="0" y="'+(yc-9).toFixed(1)+'" width="'+(xL-3)+'" height="18" rx="4" fill="var(--accent)"/>';
-    s+='<text x="'+((xL-3)/2)+'" y="'+(yc+4).toFixed(1)+'" fill="#fff" font-size="10.5" font-family="monospace" font-weight="700" text-anchor="middle">'+fmt(xau)+'</text>';
+    // เส้นระดับ (วาดทับบนสุด)
+    levels.forEach(function(l){
+      var price=l[0], above=price>hi, below=price<lo;
+      var y=above?(padT+9):(below?(H-padB-3):Y(price));
+      var nm=l[1]+(above?' ↑':(below?' ↓':'')), op=(above||below)?'.7':'1';
+      if(!above&&!below)
+        s+='<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+l[2]+'" stroke-width="1.2" stroke-dasharray="6 4" opacity=".9"/>';
+      s+='<text x="'+(xL+3)+'" y="'+(y-4).toFixed(1)+'" fill="'+l[2]+'" font-size="10" font-family="monospace" opacity="'+op+'">'+nm+'</text>';
+      s+='<text x="'+xR+'" y="'+(y-4).toFixed(1)+'" fill="'+l[2]+'" font-size="11" font-family="monospace" text-anchor="end" font-weight="700" opacity="'+op+'">'+fmt(price)+'</text>';
+    });
+    // ราคาปัจจุบัน
+    if(xau!=null){
+      var yc=Y(xau);
+      s+='<line x1="'+xL+'" y1="'+yc.toFixed(1)+'" x2="'+xR+'" y2="'+yc.toFixed(1)+'" stroke="var(--accent)" stroke-width="1" opacity=".35"/>';
+      s+='<circle cx="'+xR+'" cy="'+yc.toFixed(1)+'" r="3.5" fill="var(--accent)"/>';
+      s+='<rect x="0" y="'+(yc-9).toFixed(1)+'" width="'+(xL-3)+'" height="18" rx="4" fill="var(--accent)"/>';
+      s+='<text x="'+((xL-3)/2)+'" y="'+(yc+4).toFixed(1)+'" fill="#fff" font-size="10.5" font-family="monospace" font-weight="700" text-anchor="middle">'+fmt(xau)+'</text>';
+    }
     svg.innerHTML=s;
     document.getElementById('sdxNote').textContent =
-      (basis!=null? 'ระดับ JANIE (GC) + basis '+(basis>=0?'+':'−')+Math.abs(basis).toFixed(2)+' → XAUUSD'
-                  : '⚠️ ยังไม่มี basis — แสดงระดับดิบ (GC)')
-      + ' · เส้นน้ำเงิน = XAUUSD สดตั้งแต่เปิดหน้า ('+ticks.length+' จุด) · แท่งเทียนจริง = เฟสถัดไป (EA ส่ง OHLC)';
+      (cd? '🕯️ แท่งเทียน XAUUSD จริงจาก MT5 ('+cd.length+' แท่ง)'
+         : 'เส้นน้ำเงิน = XAUUSD สดตั้งแต่เปิดหน้า ('+ticks.length+' จุด) · แท่งเทียนรอ EA ส่ง candles')
+      + (basis!=null? ' · เส้นระดับ = JANIE(GC) + basis '+(basis>=0?'+':'−')+Math.abs(basis).toFixed(2) : ' · ⚠️ รอ basis');
   }
   setInterval(render, 2000); render();
 })();
