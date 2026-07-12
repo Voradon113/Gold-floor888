@@ -186,6 +186,14 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .newssum{font-size:12.5px;color:var(--dim);margin-top:3px;line-height:1.5}
 .newstop{margin-top:11px;display:flex;flex-direction:column;gap:6px}
 .ntrow{display:flex;gap:8px;font:600 12px var(--mono);color:var(--dim);align-items:flex-start;line-height:1.45}
+.fedwrap{display:flex;flex-direction:column;gap:9px}
+.fedmeet{font:600 12px var(--mono);color:var(--dim)}
+.fedmeet b{color:var(--ink)}
+.fedbars{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.fedrow{display:grid;grid-template-columns:78px 1fr 52px;align-items:center;gap:9px;font:600 12px var(--mono)}
+.fedbar{height:16px;border-radius:5px;background:var(--track);overflow:hidden}
+.fedbar i{display:block;height:100%;border-radius:5px;transition:width .4s}
+.fednote{font:700 12px var(--mono);margin-top:5px}
 
 .foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px;line-height:1.7}
 </style>
@@ -235,6 +243,15 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
       <div class="newsmeta"><div class="newslbl" id="newsLbl">รอข่าว</div><div class="newssum" id="newsSum"></div></div>
     </div>
     <div class="newstop" id="newsTop"></div>
+  </div></div>
+
+  <div class="grid"><div class="card">
+    <h2>🏛️ FedWatch · ดอกเบี้ยประชุมหน้า <span class="chip" id="fedUpd">—</span></h2>
+    <div class="fedwrap">
+      <div class="fedmeet" id="fedMeet">รอข้อมูล FedWatch</div>
+      <div class="fedbars" id="fedBars"></div>
+      <div class="fednote" id="fedNote"></div>
+    </div>
   </div></div>
 
   <div class="grid"><div class="card">
@@ -899,6 +916,36 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     else if(Array.isArray(news.items)){ el2.innerHTML=news.items.slice(0,5).map(function(x){
       return '<div class="ntrow"><span>•</span><span>'+(x.title||'')+'</span></div>';}).join(''); }
     else el2.innerHTML='';
+  }
+  setInterval(tick,3000); tick();
+})();
+</script>
+<script>
+/* 🏛️ FedWatch · โอกาสดอกเบี้ยประชุมหน้า — อ่าน JP.intraday.fed (ป้อนด้วย setFed_ ใน JANIE_NEWS.gs). ลด=หนุนทอง / ขึ้น=กดทอง. ไม่แตะ logic เดิม. */
+(function(){
+  function num(v){ var n=Number(v); return isNaN(n)?0:n; }
+  function ago(iso){ if(!iso)return null; var t=new Date(iso).getTime(); if(isNaN(t))return null;
+    var s=Math.max(0,(Date.now()-t)/1000); return s<3600?Math.round(s/60)+' นาที':s<86400?Math.round(s/3600)+' ชม.':Math.round(s/86400)+' วัน'; }
+  function tick(){
+    var box=document.getElementById('fedBars'); if(!box) return;
+    var meet=document.getElementById('fedMeet'), note=document.getElementById('fedNote'), upd=document.getElementById('fedUpd');
+    var jp=(typeof JP!=='undefined'&&JP)?JP:null;
+    var fed=(jp&&jp.intraday&&jp.intraday.fed)?jp.intraday.fed:((jp&&jp.fed)?jp.fed:null);
+    if(!fed){ box.innerHTML=''; note.textContent=''; upd.textContent='—';
+      meet.innerHTML='รอข้อมูล FedWatch — ยังไม่ได้ป้อน (รัน <b>setFed_</b> ใน JANIE_NEWS.gs)'; return; }
+    var ease=num(fed.ease), hold=num(fed.hold), hike=num(fed.hike);
+    meet.innerHTML='ประชุม <b>'+(fed.date||'—')+'</b>'+(fed.current?' · ดอกเบี้ยปัจจุบัน '+fed.current:'');
+    var a=ago(fed.updated); upd.textContent=a?('ป้อน '+a+'ที่แล้ว'):'manual';
+    var rows=[['ลด (ease)',ease,'var(--up)'],['คง (hold)',hold,'var(--gold2)'],['ขึ้น (hike)',hike,'var(--down)']];
+    box.innerHTML=rows.map(function(r){
+      return '<div class="fedrow"><span style="color:'+r[2]+'">'+r[0]+'</span>'+
+        '<div class="fedbar"><i style="width:'+Math.max(1.5,Math.min(100,r[1]))+'%;background:'+r[2]+'"></i></div>'+
+        '<span style="text-align:right;color:'+r[2]+'">'+r[1].toFixed(1)+'%</span></div>'; }).join('');
+    var note_c, note_t;
+    if(hike>=hold&&hike>=ease){ note_c='var(--down)'; note_t='ตลาดคาด "ขึ้นดอกเบี้ย" '+hike.toFixed(0)+'% → กดดันทอง (bearish)'; }
+    else if(ease>=hold&&ease>=hike){ note_c='var(--up)'; note_t='ตลาดคาด "ลดดอกเบี้ย" '+ease.toFixed(0)+'% → หนุนทอง (bullish)'; }
+    else { note_c='var(--gold2)'; note_t='ตลาดคาด "คงดอกเบี้ย" '+hold.toFixed(0)+'% → ทองไซด์เวย์'; }
+    note.style.color=note_c; note.textContent=note_t;
   }
   setInterval(tick,3000); tick();
 })();
