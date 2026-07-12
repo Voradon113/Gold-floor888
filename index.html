@@ -189,11 +189,17 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .fedwrap{display:flex;flex-direction:column;gap:9px}
 .fedmeet{font:600 12px var(--mono);color:var(--dim)}
 .fedmeet b{color:var(--ink)}
-.fedbars{display:flex;flex-direction:column;gap:7px;margin-top:2px}
-.fedrow{display:grid;grid-template-columns:78px 1fr 52px;align-items:center;gap:9px;font:600 12px var(--mono)}
-.fedbar{height:16px;border-radius:5px;background:var(--track);overflow:hidden}
-.fedbar i{display:block;height:100%;border-radius:5px;transition:width .4s}
-.fednote{font:700 12px var(--mono);margin-top:5px}
+.fedlist{display:flex;flex-direction:column;gap:9px;margin-top:2px}
+.fedm{display:grid;grid-template-columns:88px 1fr auto;align-items:center;gap:11px}
+.fedm .fdate{font:700 12px var(--mono);color:var(--ink);white-space:nowrap}
+.fedm .fdate small{display:block;font:600 10px var(--mono);color:var(--faint)}
+.fedstack{height:18px;border-radius:5px;overflow:hidden;display:flex;background:var(--track)}
+.fedstack i{height:100%;display:block;transition:width .4s}
+.fedm .fout{font:700 12px var(--mono);white-space:nowrap;text-align:right;min-width:64px}
+.fedlegend{display:flex;gap:14px;margin-top:2px;font:600 11px var(--mono);color:var(--faint)}
+.fedlegend span{display:flex;align-items:center;gap:5px}
+.fedlegend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.fednote{font:700 12px var(--mono);margin-top:3px}
 
 .foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px;line-height:1.7}
 </style>
@@ -246,10 +252,15 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
   </div></div>
 
   <div class="grid"><div class="card">
-    <h2>🏛️ FedWatch · ดอกเบี้ยประชุมหน้า <span class="chip" id="fedUpd">—</span></h2>
+    <h2>🏛️ FedWatch · เส้นทางดอกเบี้ย <span class="chip" id="fedUpd">—</span></h2>
     <div class="fedwrap">
       <div class="fedmeet" id="fedMeet">รอข้อมูล FedWatch</div>
-      <div class="fedbars" id="fedBars"></div>
+      <div class="fedlist" id="fedList"></div>
+      <div class="fedlegend" id="fedLegend" style="display:none">
+        <span><i style="background:var(--up)"></i>ลด (หนุนทอง)</span>
+        <span><i style="background:var(--gold2)"></i>คง</span>
+        <span><i style="background:var(--down)"></i>ขึ้น (กดทอง)</span>
+      </div>
       <div class="fednote" id="fedNote"></div>
     </div>
   </div></div>
@@ -365,6 +376,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 const QS = new URLSearchParams(location.search);
 const ENDPOINT     = (QS.get('api') || "https://script.google.com/macros/s/AKfycbyi4ldRXWSnFiLI9MdPbDRx_IqIM1wwRS8VV-5L7ibw76CBzUTsy8m7X_jtcsAqotOX/exec").trim();
 const ENDPOINT_MT5 = (QS.get('mt5') || "https://script.google.com/macros/s/AKfycbwLobkT2XyjWp6LhZIRTdaaMyQLedbV8ezOvO6inNIrLwAC7jJlb2lF8qPyjvXfJfSU/exec").trim();
+const ENDPOINT_FEED = (QS.get('feed') || "").trim();  // TANU FEED (ข่าว+FedWatch) แยกจาก JANIE — เติม URL หลัง deploy
 
 const BLANK = {
   contract:'—', priceGC:null, mean:null, callOI:null, putOI:null, pcr:null,
@@ -425,7 +437,7 @@ function mergeMt5(m){
   if(Array.isArray(m.curve)) DATA.curve=m.curve.map(Number).filter(v=>v>0);
 }
 
-let JP=null, MP=null, jOk=false;
+let JP=null, MP=null, jOk=false, FEED=null;
 function apply(){
   DATA=JSON.parse(JSON.stringify(BLANK));
   if(JP) mergeJanie(JP);
@@ -447,6 +459,13 @@ async function loadMt5(){
     if(p&&p.mt5) MP=p.mt5;
   }catch(e){ console.warn('MT5:',e); }
   apply();
+}
+async function loadFeed(){
+  if(!ENDPOINT_FEED) return;
+  try{
+    const r=await fetch(ENDPOINT_FEED+(ENDPOINT_FEED.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+    FEED=await r.json();
+  }catch(e){ console.warn('FEED:',e); }
 }
 
 function status(ok,upd){
@@ -627,9 +646,10 @@ function timeline(){
   $('sessPill').textContent = cur?cur[0]:'ปิดตลาด';
 }
 
-render(); loadJanie(); loadMt5();
+render(); loadJanie(); loadMt5(); loadFeed();
 setInterval(loadMt5, 10000);
 setInterval(loadJanie, 60000);
+setInterval(loadFeed, 60000);
 setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');},1000);
 </script>
 <script>
@@ -890,17 +910,16 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 })();
 </script>
 <script>
-/* 📰 การ์ดข่าว · sentiment ทอง — อ่าน JP.intraday.news (JANIE_NEWS.gs เขียนลง live intraday, endpoint เสิร์ฟทั้งก้อน). ไม่แตะ logic เดิม. */
+/* 📰 การ์ดข่าว · sentiment ทอง — อ่าน FEED.news (TANU FEED โปรเจกต์แยกจาก JANIE). ไม่แตะ logic เดิม. */
 (function(){
   function ago(iso){ if(!iso)return '—'; var t=new Date(iso).getTime(); if(isNaN(t))return '—';
     var s=Math.max(0,(Date.now()-t)/1000); return s<60?Math.round(s)+' วิ':s<3600?Math.round(s/60)+' นาที':Math.round(s/3600)+' ชม.'; }
   function tick(){
     var el=document.getElementById('newsScore'); if(!el) return;
-    var jp=(typeof JP!=='undefined'&&JP)?JP:null;
-    var news=(jp&&jp.intraday&&jp.intraday.news)?jp.intraday.news:((jp&&jp.news)?jp.news:null);
+    var news=(typeof FEED!=='undefined'&&FEED&&FEED.news)?FEED.news:null;
     if(!news){ el.textContent='—'; el.style.color='var(--faint)';
-      document.getElementById('newsLbl').textContent='รอข้อมูลข่าว — ยังไม่ได้ติดตั้ง JANIE_NEWS.gs';
-      document.getElementById('newsSum').textContent='(ดูขั้นตอนวางไฟล์ .gs ในแชท)'; document.getElementById('newsUpd').textContent='—';
+      document.getElementById('newsLbl').textContent= ENDPOINT_FEED?'รอข้อมูลข่าว — feed กำลังดึง/ยังไม่มีคะแนน':'รอข้อมูลข่าว — ยังไม่ได้ต่อ TANU FEED';
+      document.getElementById('newsSum').textContent= ENDPOINT_FEED?'':'(ยังไม่ได้ใส่ URL feed ในจอ)'; document.getElementById('newsUpd').textContent='—';
       document.getElementById('newsTop').innerHTML=''; return; }
     var sc=(news.score==null||isNaN(Number(news.score)))?null:Number(news.score);
     el.textContent=(sc==null?'—':(sc>0?'+':'')+sc);
@@ -921,31 +940,45 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 })();
 </script>
 <script>
-/* 🏛️ FedWatch · โอกาสดอกเบี้ยประชุมหน้า — อ่าน JP.intraday.fed (ป้อนด้วย setFed_ ใน JANIE_NEWS.gs). ลด=หนุนทอง / ขึ้น=กดทอง. ไม่แตะ logic เดิม. */
+/* 🏛️ FedWatch · เส้นทางดอกเบี้ยหลายประชุม — อ่าน FEED.fed.meetings (TANU FEED แยกจาก JANIE). ลด=หนุนทอง / ขึ้น=กดทอง. */
 (function(){
   function num(v){ var n=Number(v); return isNaN(n)?0:n; }
   function ago(iso){ if(!iso)return null; var t=new Date(iso).getTime(); if(isNaN(t))return null;
     var s=Math.max(0,(Date.now()-t)/1000); return s<3600?Math.round(s/60)+' นาที':s<86400?Math.round(s/3600)+' ชม.':Math.round(s/86400)+' วัน'; }
+  function outcome(ease,hold,hike){
+    if(hike>=hold&&hike>=ease) return ['ขึ้น '+hike.toFixed(0)+'%','var(--down)'];
+    if(ease>=hold&&ease>=hike) return ['ลด '+ease.toFixed(0)+'%','var(--up)'];
+    return ['คง '+hold.toFixed(0)+'%','var(--gold2)'];
+  }
   function tick(){
-    var box=document.getElementById('fedBars'); if(!box) return;
-    var meet=document.getElementById('fedMeet'), note=document.getElementById('fedNote'), upd=document.getElementById('fedUpd');
-    var jp=(typeof JP!=='undefined'&&JP)?JP:null;
-    var fed=(jp&&jp.intraday&&jp.intraday.fed)?jp.intraday.fed:((jp&&jp.fed)?jp.fed:null);
-    if(!fed){ box.innerHTML=''; note.textContent=''; upd.textContent='—';
-      meet.innerHTML='รอข้อมูล FedWatch — ยังไม่ได้ป้อน (รัน <b>setFed_</b> ใน JANIE_NEWS.gs)'; return; }
-    var ease=num(fed.ease), hold=num(fed.hold), hike=num(fed.hike);
-    meet.innerHTML='ประชุม <b>'+(fed.date||'—')+'</b>'+(fed.current?' · ดอกเบี้ยปัจจุบัน '+fed.current:'');
+    var list=document.getElementById('fedList'); if(!list) return;
+    var meet=document.getElementById('fedMeet'), note=document.getElementById('fedNote'),
+        upd=document.getElementById('fedUpd'), leg=document.getElementById('fedLegend');
+    var fed=(typeof FEED!=='undefined'&&FEED&&FEED.fed)?FEED.fed:null;
+    var ms=(fed&&Array.isArray(fed.meetings))?fed.meetings:[];
+    if(!ms.length){ list.innerHTML=''; note.textContent=''; upd.textContent='—'; if(leg)leg.style.display='none';
+      meet.innerHTML=(typeof ENDPOINT_FEED!=='undefined'&&ENDPOINT_FEED)
+        ? 'รอข้อมูล FedWatch — รัน <b>updateFedWatch</b> ใน TANU FEED'
+        : 'รอข้อมูล FedWatch — ยังไม่ได้ต่อ TANU FEED'; return; }
+    meet.innerHTML= fed.current? ('ดอกเบี้ยปัจจุบัน <b>'+fed.current+'</b> · โอกาสแต่ละประชุม') : 'โอกาสแต่ละประชุม';
     var a=ago(fed.updated); upd.textContent=a?('ป้อน '+a+'ที่แล้ว'):'manual';
-    var rows=[['ลด (ease)',ease,'var(--up)'],['คง (hold)',hold,'var(--gold2)'],['ขึ้น (hike)',hike,'var(--down)']];
-    box.innerHTML=rows.map(function(r){
-      return '<div class="fedrow"><span style="color:'+r[2]+'">'+r[0]+'</span>'+
-        '<div class="fedbar"><i style="width:'+Math.max(1.5,Math.min(100,r[1]))+'%;background:'+r[2]+'"></i></div>'+
-        '<span style="text-align:right;color:'+r[2]+'">'+r[1].toFixed(1)+'%</span></div>'; }).join('');
-    var note_c, note_t;
-    if(hike>=hold&&hike>=ease){ note_c='var(--down)'; note_t='ตลาดคาด "ขึ้นดอกเบี้ย" '+hike.toFixed(0)+'% → กดดันทอง (bearish)'; }
-    else if(ease>=hold&&ease>=hike){ note_c='var(--up)'; note_t='ตลาดคาด "ลดดอกเบี้ย" '+ease.toFixed(0)+'% → หนุนทอง (bullish)'; }
-    else { note_c='var(--gold2)'; note_t='ตลาดคาด "คงดอกเบี้ย" '+hold.toFixed(0)+'% → ทองไซด์เวย์'; }
-    note.style.color=note_c; note.textContent=note_t;
+    if(leg)leg.style.display='';
+    list.innerHTML=ms.map(function(m){
+      var ease=num(m.ease), hold=num(m.hold), hike=num(m.hike);
+      var tot=ease+hold+hike; if(tot<=0) tot=100;
+      var o=outcome(ease,hold,hike);
+      return '<div class="fedm"><span class="fdate">'+(m.date||'—')+'</span>'+
+        '<div class="fedstack">'+
+          '<i style="width:'+(ease/tot*100)+'%;background:var(--up)"></i>'+
+          '<i style="width:'+(hold/tot*100)+'%;background:var(--gold2)"></i>'+
+          '<i style="width:'+(hike/tot*100)+'%;background:var(--down)"></i>'+
+        '</div>'+
+        '<span class="fout" style="color:'+o[1]+'">'+o[0]+'</span></div>';
+    }).join('');
+    var f=ms[0], e0=num(f.ease), h0=num(f.hold), k0=num(f.hike), oc=outcome(e0,h0,k0);
+    var dir = (k0>=h0&&k0>=e0)?'กดดันทอง (bearish)':(e0>=h0&&e0>=k0)?'หนุนทอง (bullish)':'ทองไซด์เวย์';
+    note.style.color=oc[1];
+    note.textContent='ประชุมหน้า ('+(f.date||'')+'): '+oc[0]+' → '+dir;
   }
   setInterval(tick,3000); tick();
 })();
