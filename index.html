@@ -178,6 +178,14 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .rr .rc small{color:var(--faint);display:block;font:600 8.5px var(--mono);margin-bottom:1px;letter-spacing:.5px}
 .flow{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font:600 12px var(--mono);color:var(--dim)}
 .flow b{color:var(--ink)}
+.newscard{background:linear-gradient(135deg,var(--accentSoft),var(--card) 55%)}
+.newswrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.newsscore{font:800 44px var(--mono);line-height:1;min-width:96px}
+.newsmeta{flex:1;min-width:180px}
+.newslbl{font:700 14px var(--mono);color:var(--ink)}
+.newssum{font-size:12.5px;color:var(--dim);margin-top:3px;line-height:1.5}
+.newstop{margin-top:11px;display:flex;flex-direction:column;gap:6px}
+.ntrow{display:flex;gap:8px;font:600 12px var(--mono);color:var(--dim);align-items:flex-start;line-height:1.45}
 
 .foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px;line-height:1.7}
 </style>
@@ -218,6 +226,15 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
         <span class="basisstate" id="basisState">รอ EA ส่งราคา</span>
       </div>
     </div>
+  </div></div>
+
+  <div class="grid"><div class="card newscard">
+    <h2>📰 ข่าว USD · Sentiment ทอง <span class="chip" id="newsUpd">—</span></h2>
+    <div class="newswrap">
+      <div class="newsscore" id="newsScore">—</div>
+      <div class="newsmeta"><div class="newslbl" id="newsLbl">รอข่าว</div><div class="newssum" id="newsSum"></div></div>
+    </div>
+    <div class="newstop" id="newsTop"></div>
   </div></div>
 
   <div class="grid"><div class="card">
@@ -853,6 +870,37 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   }
   function tick(){ renderZones(); renderRR(); renderFlow(); }
   setInterval(tick, 1500); tick();
+})();
+</script>
+<script>
+/* 📰 การ์ดข่าว · sentiment ทอง — อ่าน JP.intraday.news (JANIE_NEWS.gs เขียนลง live intraday, endpoint เสิร์ฟทั้งก้อน). ไม่แตะ logic เดิม. */
+(function(){
+  function ago(iso){ if(!iso)return '—'; var t=new Date(iso).getTime(); if(isNaN(t))return '—';
+    var s=Math.max(0,(Date.now()-t)/1000); return s<60?Math.round(s)+' วิ':s<3600?Math.round(s/60)+' นาที':Math.round(s/3600)+' ชม.'; }
+  function tick(){
+    var el=document.getElementById('newsScore'); if(!el) return;
+    var jp=(typeof JP!=='undefined'&&JP)?JP:null;
+    var news=(jp&&jp.intraday&&jp.intraday.news)?jp.intraday.news:((jp&&jp.news)?jp.news:null);
+    if(!news){ el.textContent='—'; el.style.color='var(--faint)';
+      document.getElementById('newsLbl').textContent='รอข้อมูลข่าว — ยังไม่ได้ติดตั้ง JANIE_NEWS.gs';
+      document.getElementById('newsSum').textContent='(ดูขั้นตอนวางไฟล์ .gs ในแชท)'; document.getElementById('newsUpd').textContent='—';
+      document.getElementById('newsTop').innerHTML=''; return; }
+    var sc=(news.score==null||isNaN(Number(news.score)))?null:Number(news.score);
+    el.textContent=(sc==null?'—':(sc>0?'+':'')+sc);
+    el.style.color=sc==null?'var(--faint)':sc>10?'var(--up)':sc<-10?'var(--down)':'var(--gold2)';
+    document.getElementById('newsLbl').textContent=news.label||'—';
+    document.getElementById('newsSum').textContent=news.summary||'';
+    document.getElementById('newsUpd').textContent=news.updated?('อัปเดต '+ago(news.updated)+'ที่แล้ว'):'—';
+    var top=(Array.isArray(news.top)&&news.top.length)?news.top:null, el2=document.getElementById('newsTop');
+    if(top){ el2.innerHTML=top.slice(0,5).map(function(x){ var im=String(x.impact||'0');
+      var c=im.indexOf('+')>=0?'var(--up)':im.indexOf('-')>=0?'var(--down)':'var(--dim)';
+      var ar=im.indexOf('+')>=0?'▲':im.indexOf('-')>=0?'▼':'•';
+      return '<div class="ntrow"><span style="color:'+c+'">'+ar+'</span><span>'+(x.t||'')+'</span></div>';}).join(''); }
+    else if(Array.isArray(news.items)){ el2.innerHTML=news.items.slice(0,5).map(function(x){
+      return '<div class="ntrow"><span>•</span><span>'+(x.title||'')+'</span></div>';}).join(''); }
+    else el2.innerHTML='';
+  }
+  setInterval(tick,3000); tick();
 })();
 </script>
 </body>
