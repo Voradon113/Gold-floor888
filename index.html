@@ -160,6 +160,25 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .sdxchart{width:100%;height:auto;display:block}
 .sdxnote{margin-top:8px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.5}
 
+.zdist{display:flex;flex-direction:column;gap:7px}
+.zrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font:600 12px var(--mono);background:var(--card2);border-radius:9px;padding:8px 11px;border-left:3px solid var(--line)}
+.zrow .znm{color:var(--dim)}
+.zrow.near{box-shadow:0 0 0 1px var(--gold) inset}
+.alerts{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:170px;overflow:auto}
+.alert{font:600 11.5px var(--mono);padding:7px 10px;border-radius:8px;display:flex;gap:8px;align-items:center;background:rgba(240,96,74,.13);color:#f2a597;border:1px solid rgba(240,96,74,.28)}
+.alert.up{background:rgba(47,209,141,.13);color:#8fe3bd;border-color:rgba(47,209,141,.28)}
+.bell{cursor:pointer;font:700 10px var(--mono);padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card2);color:var(--dim);text-transform:none}
+.bell.on{color:var(--up);border-color:var(--up)}
+.rrpos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.rr{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px}
+.rr .rt{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.rr .rsym{font:700 12.5px var(--mono);color:var(--ink)}
+.rr .rrv{font:800 14px var(--mono)}
+.rr .rgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;font:700 12px var(--mono);color:var(--ink)}
+.rr .rc small{color:var(--faint);display:block;font:600 8.5px var(--mono);margin-bottom:1px;letter-spacing:.5px}
+.flow{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font:600 12px var(--mono);color:var(--dim)}
+.flow b{color:var(--ink)}
+
 .foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px;line-height:1.7}
 </style>
 </head>
@@ -277,6 +296,23 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
   <div class="grid"><div class="card">
     <h2>ออเดอร์ที่เปิดอยู่ <span class="chip" id="posChip">—</span></h2>
     <div class="pos" id="pos"></div>
+  </div></div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2>📏 ระยะถึงโซน · แจ้งเตือน <button class="bell" id="bellBtn" onclick="if(window.sdxEnableAlerts)sdxEnableAlerts()">🔔 เปิดเสียง/แจ้งเตือน</button></h2>
+      <div class="zdist" id="zdist"></div>
+      <div class="alerts" id="alerts"></div>
+    </div>
+    <div class="card">
+      <h2>🎯 ความเสี่ยงไม้เปิด · R:R <span class="chip" id="rrChip">—</span></h2>
+      <div class="rrpos" id="rrpos"></div>
+    </div>
+  </div>
+
+  <div class="grid"><div class="card">
+    <h2>🐋 Flow รายใหญ่ (OI)</h2>
+    <div class="flow" id="flowBig">—</div>
   </div></div>
 
   <div class="grid"><div class="card">
@@ -699,6 +735,18 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       s+='<rect x="0" y="'+(yc-9).toFixed(1)+'" width="'+(xL-3)+'" height="18" rx="4" fill="var(--accent)"/>';
       s+='<text x="'+((xL-3)/2)+'" y="'+(yc+4).toFixed(1)+'" fill="#fff" font-size="10.5" font-family="monospace" font-weight="700" text-anchor="middle">'+fmt(xau)+'</text>';
     }
+    // ออเดอร์ทองที่เปิดอยู่ (จุดเข้า/SL/TP) — เฉพาะไม้ที่เป็นทอง วาดครึ่งขวาไม่ให้ทับ label โซน
+    var gps=(typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.positions))?DATA.positions:[];
+    gps.forEach(function(p){
+      var sym=String(p.symbol||''); var gold=/XAU|GOLD/i.test(sym)||(mp&&mp.symbol&&sym===mp.symbol);
+      if(!gold) return;
+      [[n(p.open),'เข้า','var(--accent)','3 3'],[n(p.sl),'SL','var(--down)','5 3'],[n(p.tp),'TP','var(--up)','5 3']].forEach(function(q){
+        if(q[0]==null||q[0]<=0||q[0]<lo||q[0]>hi) return;
+        var yy=Y(q[0]);
+        s+='<line x1="'+(xL+170)+'" y1="'+yy.toFixed(1)+'" x2="'+xR+'" y2="'+yy.toFixed(1)+'" stroke="'+q[2]+'" stroke-width="1.4" stroke-dasharray="'+q[3]+'"/>';
+        s+='<text x="'+(xL+174)+'" y="'+(yy-3).toFixed(1)+'" fill="'+q[2]+'" font-size="9" font-family="monospace" font-weight="700">'+q[1]+' '+fmt(q[0])+'</text>';
+      });
+    });
     svg.innerHTML=s;
     document.getElementById('sdxNote').textContent =
       (cd? '🕯️ แท่งเทียน XAUUSD จริงจาก MT5 ('+cd.length+' แท่ง)'
@@ -706,6 +754,105 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       + (basis!=null? ' · เส้นระดับ = JANIE(GC) + basis '+(basis>=0?'+':'−')+Math.abs(basis).toFixed(2) : ' · ⚠️ รอ basis');
   }
   setInterval(render, 2000); render();
+})();
+</script>
+<script>
+/* Add-ons: ระยะถึงโซน · แจ้งเตือนหลุดโซน (เสียง+notification) · R:R ต่อไม้ · PCR trend + Flow รายใหญ่.
+   อ่าน global DATA/MP เท่านั้น — ไม่แตะ logic เดิม. */
+(function(){
+  function n(v){return (v===null||v===undefined||v===''||isNaN(Number(v)))?null:Number(v);}
+  function fmt(v){return v==null?'—':Math.round(v).toLocaleString();}
+  function curXau(mp){ if(!mp)return null;
+    if(n(mp.xau)!=null)return n(mp.xau);
+    if(n(mp.bid)!=null&&n(mp.ask)!=null)return (n(mp.bid)+n(mp.ask))/2;
+    if(n(mp.bid)!=null)return n(mp.bid);
+    return n(mp.xauusd); }
+  function curGc(mp){ if(mp){ if(n(mp.gcf)!=null)return n(mp.gcf); if(n(mp.gc)!=null)return n(mp.gc);}
+    if(typeof DATA!=='undefined'&&DATA&&n(DATA.priceGC)!=null)return n(DATA.priceGC); return null; }
+
+  var alertsOn=false, ac=null, lastSide={}, alertLog=[];
+  window.sdxEnableAlerts=function(){
+    alertsOn=true;
+    try{ ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+    if(window.Notification && Notification.permission==='default'){ try{ Notification.requestPermission(); }catch(e){} }
+    var b=document.getElementById('bellBtn'); if(b){ b.classList.add('on'); b.textContent='🔔 แจ้งเตือน: เปิด'; }
+  };
+  function beep(up){ if(!ac)return; try{ var o=ac.createOscillator(),g=ac.createGain();
+    o.frequency.value=up?880:440; o.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(0.0001,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.25,ac.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+0.35); o.start(); o.stop(ac.currentTime+0.36);}catch(e){} }
+  function fireAlert(msg, up){
+    alertLog.unshift({msg:msg, up:up, t:new Date().toLocaleTimeString('th-TH')}); if(alertLog.length>8)alertLog.pop();
+    var el=document.getElementById('alerts'); if(el) el.innerHTML=alertLog.map(function(a){
+      return '<div class="alert '+(a.up?'up':'')+'"><span>'+(a.up?'▲':'▼')+'</span><span>'+a.msg+'</span><span style="margin-left:auto;opacity:.65">'+a.t+'</span></div>';}).join('');
+    if(alertsOn){ beep(up); if(window.Notification && Notification.permission==='granted'){ try{ new Notification('⚠️ TANU DASHBOARD', {body:msg}); }catch(e){} } }
+  }
+  function zones(){
+    var mp=(typeof MP!=='undefined'&&MP)?MP:null, xau=curXau(mp), gc=curGc(mp);
+    var basis=(xau!=null&&gc!=null)?(xau-gc):0;
+    var P=(typeof DATA!=='undefined'&&DATA&&DATA.plan)?DATA.plan:{}, z=[];
+    if(n(P.bsl)!=null) z.push(['BSL',n(P.bsl)+basis,'var(--down)']);
+    var mean=n(P.mean)!=null?n(P.mean):((typeof DATA!=='undefined'&&DATA)?n(DATA.mean):null);
+    if(mean!=null) z.push(['Mean',mean+basis,'var(--gold)']);
+    if(n(P.ssl)!=null) z.push(['SSL',n(P.ssl)+basis,'var(--up)']);
+    return {zones:z, xau:xau};
+  }
+  function renderZones(){
+    var Z=zones(), xau=Z.xau, z=Z.zones, dz=document.getElementById('zdist');
+    if(dz){
+      if(xau==null||!z.length){ dz.innerHTML='<div class="zrow"><span class="znm">รอราคา XAUUSD / โซนจาก JANIE</span></div>'; }
+      else dz.innerHTML=z.map(function(x){
+        var d=xau-x[1], near=Math.abs(d)<8, pct=d/x[1]*100;
+        return '<div class="zrow'+(near?' near':'')+'" style="border-left-color:'+x[2]+'"><span class="znm">'+x[0]+' <b style="color:'+x[2]+'">'+fmt(x[1])+'</b></span>'+
+          '<span style="font-size:11px;color:'+(d>=0?'var(--up)':'var(--down)')+'">'+(d>=0?'+':'')+d.toFixed(1)+' จุด ('+(d>=0?'+':'')+pct.toFixed(2)+'%)</span></div>';
+      }).join('');
+    }
+    if(xau!=null){ z.forEach(function(x){
+      var side=xau>=x[1]?'up':'down', prev=lastSide[x[0]];
+      if(prev && prev!==side){ var up=side==='up'; fireAlert((up?'ทะลุขึ้นเหนือ ':'หลุดลงใต้ ')+x[0]+' '+fmt(x[1]), up); }
+      lastSide[x[0]]=side;
+    }); }
+  }
+  function renderRR(){
+    var el=document.getElementById('rrpos'); if(!el) return;
+    var mp=(typeof MP!=='undefined'&&MP)?MP:null;
+    var ps=(typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.positions))?DATA.positions:[];
+    var ch=document.getElementById('rrChip'); if(ch) ch.textContent=ps.length+' ไม้';
+    if(!ps.length){ el.innerHTML='<div class="zrow"><span class="znm">ไม่มีไม้เปิดอยู่</span></div>'; return; }
+    el.innerHTML=ps.map(function(p){
+      var open=n(p.open), sl=n(p.sl), tp=n(p.tp), typ=String(p.type||'').toUpperCase(), prof=n(p.profit)||0;
+      var risk=(open!=null&&sl!=null&&sl>0)?Math.abs(open-sl):null;
+      var rew =(open!=null&&tp!=null&&tp>0)?Math.abs(tp-open):null;
+      var rr=(risk&&rew)?(rew/risk):null, win=prof>=0;
+      return '<div class="rr"><div class="rt"><span class="rsym">'+(p.symbol||'—')+' <span style="color:'+(typ==='BUY'?'var(--up)':'var(--down)')+'">'+typ+'</span></span>'+
+        '<span class="rrv" style="color:'+(rr==null?'var(--faint)':rr>=2?'var(--up)':rr>=1?'var(--gold2)':'var(--down)')+'">RR '+(rr==null?'—':rr.toFixed(2))+'</span></div>'+
+        '<div class="rgrid"><div class="rc"><small>เข้า</small>'+fmt(open)+'</div>'+
+        '<div class="rc"><small>SL</small><span style="color:var(--down)">'+(sl>0?fmt(sl):'—')+'</span></div>'+
+        '<div class="rc"><small>TP</small><span style="color:var(--up)">'+(tp>0?fmt(tp):'—')+'</span></div></div>'+
+        '<div class="rgrid" style="margin-top:5px"><div class="rc"><small>LOT</small>'+(n(p.volume)||0).toFixed(2)+'</div>'+
+        '<div class="rc"><small>ห่าง SL</small>'+(risk!=null?risk.toFixed(0):'—')+'</div>'+
+        '<div class="rc"><small>P/L</small><span style="color:'+(win?'var(--up)':'var(--down)')+'">'+(prof>=0?'+':'−')+'$'+Math.abs(prof).toFixed(2)+'</span></div></div></div>';
+    }).join('');
+  }
+  var pcrHist=[];
+  function renderFlow(){
+    var el=document.getElementById('flowBig'); if(!el) return;
+    var D=(typeof DATA!=='undefined')?DATA:{};
+    var pcr=n(D.pcr), putOI=n(D.putOI), callOI=n(D.callOI);
+    if(pcr!=null && (pcrHist.length===0 || pcrHist[pcrHist.length-1]!==pcr)){ pcrHist.push(pcr); if(pcrHist.length>80)pcrHist.shift(); }
+    var trend=pcrHist.length>=2?(pcrHist[pcrHist.length-1]-pcrHist[0]):0;
+    var heat=Array.isArray(D.heat)?D.heat:[];
+    var bigCall=heat.filter(function(h){return h[1]==='c';}).sort(function(a,b){return b[2]-a[2];})[0];
+    var bigPut =heat.filter(function(h){return h[1]==='p';}).sort(function(a,b){return b[2]-a[2];})[0];
+    var lead=(putOI!=null&&callOI!=null)?(putOI>callOI?'Put นำ · แนวรับหนา':'Call นำ · แนวต้านหนา'):'—';
+    el.innerHTML=
+      '<span class="fseg">PCR <b>'+(pcr!=null?pcr.toFixed(2):'—')+'</b> '+(trend>0.01?'<span style="color:var(--down)">▲ เอียง Put</span>':trend<-0.01?'<span style="color:var(--up)">▼ เอียง Call</span>':'<span style="opacity:.55">— นิ่ง</span>')+'</span>'+
+      '<span class="fseg">OI <b>Put '+(putOI!=null?Math.round(putOI/1000)+'k':'—')+'</b> vs <b>Call '+(callOI!=null?Math.round(callOI/1000)+'k':'—')+'</b> · '+lead+'</span>'+
+      (bigCall?'<span class="fseg" style="color:var(--up)">🔵 Call ใหญ่สุด <b>'+fmt(bigCall[0])+'</b> ('+Math.round(bigCall[2]/100)/10+'k)</span>':'')+
+      (bigPut?'<span class="fseg" style="color:var(--gold2)">🟡 Put ใหญ่สุด <b>'+fmt(bigPut[0])+'</b> ('+Math.round(bigPut[2]/100)/10+'k)</span>':'');
+  }
+  function tick(){ renderZones(); renderRR(); renderFlow(); }
+  setInterval(tick, 1500); tick();
 })();
 </script>
 </body>
