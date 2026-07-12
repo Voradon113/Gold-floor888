@@ -633,6 +633,13 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(mean!=null) levels.push([mean+add,'MEAN','var(--gold)']);
     if(n(P.ssl)!=null) levels.push([n(P.ssl)+add,'SSL · แนวรับ','var(--up)']);
     if(Array.isArray(P.targets)) P.targets.forEach(function(t,i){ if(n(t)!=null&&n(t)!==mean) levels.push([n(t)+add,'เป้า '+(i+1),'var(--dim)']); });
+    // เส้น SD (±1/2/3) จาก JANIE — plan.sd = [[label, ราคาGC], ...] หรือ [ราคาGC, ...]
+    var sdArr = Array.isArray(P.sd) ? P.sd : ((typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.sd))?DATA.sd:null);
+    if(sdArr) sdArr.forEach(function(row){
+      var lbl,price;
+      if(Array.isArray(row)){ lbl=String(row[0]); price=n(row[1]); } else { price=n(row); lbl='SD'; }
+      if(price!=null) levels.push([price+add, lbl, 'var(--accent2)', 'sd']);
+    });
     var W=700,H=320,padT=12,padB=14,xL=46,xR=W-8;
     var lo,hi;
     if(cd){                         // scale ตามแท่งเทียน (ราคาที่วิ่งจริง) + ดึงเฉพาะ level ที่อยู่ใกล้เข้ามา
@@ -667,15 +674,23 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       s+='<path d="'+d+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>';
     }
     // เส้นระดับ (วาดทับบนสุด)
-    levels.forEach(function(l){
-      var price=l[0], above=price>hi, below=price<lo;
-      var y=above?(padT+9):(below?(H-padB-3):Y(price));
-      var nm=l[1]+(above?' ↑':(below?' ↓':'')), op=(above||below)?'.7':'1';
-      if(!above&&!below)
-        s+='<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+l[2]+'" stroke-width="1.2" stroke-dasharray="6 4" opacity=".9"/>';
-      s+='<text x="'+(xL+3)+'" y="'+(y-4).toFixed(1)+'" fill="'+l[2]+'" font-size="10" font-family="monospace" opacity="'+op+'">'+nm+'</text>';
-      s+='<text x="'+xR+'" y="'+(y-4).toFixed(1)+'" fill="'+l[2]+'" font-size="11" font-family="monospace" text-anchor="end" font-weight="700" opacity="'+op+'">'+fmt(price)+'</text>';
+    // แยกเส้นในจอ / นอกจอ (บน-ล่าง) แล้ว stack ป้ายนอกจอไม่ให้ทับกัน (ใกล้สุดก่อน)
+    var inV=[],ab=[],be=[];
+    levels.forEach(function(l){ if(l[0]>hi)ab.push(l); else if(l[0]<lo)be.push(l); else inV.push(l); });
+    ab.sort(function(a,b){return a[0]-b[0];});
+    be.sort(function(a,b){return b[0]-a[0];});
+    function lbl(l,y,arrow,dim){
+      var sd=(l[3]==='sd'), op=((dim?0.65:1)*(sd?0.85:1)).toFixed(2);
+      s+='<text x="'+(xL+3)+'" y="'+y.toFixed(1)+'" fill="'+l[2]+'" font-size="'+(sd?9:10)+'" font-family="monospace" opacity="'+op+'">'+l[1]+arrow+'</text>';
+      s+='<text x="'+xR+'" y="'+y.toFixed(1)+'" fill="'+l[2]+'" font-size="'+(sd?10:11)+'" font-family="monospace" text-anchor="end" font-weight="700" opacity="'+op+'">'+fmt(l[0])+'</text>';
+    }
+    inV.forEach(function(l){
+      var sd=(l[3]==='sd'), y=Y(l[0]);
+      s+='<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+l[2]+'" stroke-width="'+(sd?0.9:1.2)+'" stroke-dasharray="'+(sd?'2 3':'6 4')+'" opacity="'+(sd?0.55:0.9)+'"/>';
+      lbl(l,y-4,'',false);
     });
+    ab.forEach(function(l,i){ lbl(l, padT+10+i*13, ' ↑', true); });
+    be.forEach(function(l,i){ lbl(l, H-padB-4-i*13, ' ↓', true); });
     // ราคาปัจจุบัน
     if(xau!=null){
       var yc=Y(xau);
