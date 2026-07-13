@@ -157,6 +157,12 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .basismeta b{color:var(--ink);margin-left:5px}
 .basisstate{margin-left:auto;color:var(--faint);font-size:11px}
 @media(max-width:520px){.basisstate{margin-left:0;flex-basis:100%}}
+.basisinput{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:4px;font:600 11px var(--mono);color:var(--dim)}
+.basisinput input{width:150px;padding:5px 8px;border-radius:7px;border:1px solid var(--track);background:var(--bg);color:var(--ink);font:600 12px var(--mono)}
+.basisinput input:focus{outline:none;border-color:var(--accent)}
+.basisinput button{padding:5px 12px;border-radius:7px;border:0;background:var(--accent);color:#fff;font:700 11px var(--mono);cursor:pointer}
+.basisinput button#gcClear{background:var(--track);color:var(--dim);padding:5px 9px}
+.basisinput button:hover{filter:brightness(1.1)}
 .sdxchart{width:100%;height:auto;display:block}
 .sdxnote{margin-top:8px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.5}
 
@@ -224,6 +230,12 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
         <span>XAUUSD<b id="bXau">—</b></span>
         <span>GC<b id="bGc">—</b></span>
         <span class="basisstate" id="basisState">รอ EA ส่งราคา</span>
+      </div>
+      <div class="basisinput">
+        <span>GC/MGC1! จริง</span>
+        <input type="number" id="gcManual" step="0.1" inputmode="decimal" placeholder="พิมพ์ราคา futures จาก TradingView/CME เช่น 4085">
+        <button id="gcSet" type="button">อัปเดต</button>
+        <button id="gcClear" type="button" title="ล้าง → กลับไปใช้ spot อัตโนมัติ">↺</button>
       </div>
     </div>
   </div></div>
@@ -616,13 +628,14 @@ setInterval(loadJanie, 60000);
 setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');},1000);
 </script>
 <script>
-/* Basis (XAUUSD − ทอง) · realtime tile — reads globals MP (raw MT5) / DATA + polls gold-api.com (spot XAU, CORS-clean).
-   GC futures realtime ดึงจากจอ static ไม่ได้ (Yahoo/investing โดน CORS, พร็อกซีฟรีไม่เสถียร) → GC source priority:
-   MT5 gold-futures (ถ้าโบรกมี) → gold-api SPOT (live) → JANIE priceGC (ค้าง, fallback). */
+/* Basis (XAUUSD − GC) · realtime tile — reads globals MP (raw MT5) / DATA + polls gold-api.com (spot XAU, CORS-clean).
+   GC futures realtime ดึงจากจอ static ไม่ได้ (CORS) และโบรก CFD ไม่มี futures → ผู้ใช้กรอกราคา GC/MGC1! จริงเอง 1 ครั้ง:
+   จำ carry = (ราคาที่กรอก − spot ณ ตอนกด) → จากนั้น GC = spot สด + carry → ขยับ realtime ตลอด ไม่ค้าง.
+   Priority: กรอกเอง(carry) → MT5 gcf (ถ้าโบรกมี) → spot ล้วน → JANIE (ค้าง). */
 (function(){
   function n(v){return (v===null||v===undefined||v===''||isNaN(Number(v)))?null:Number(v);}
   function f2(v){return v==null?'—':Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
-  var spot=null;
+  var spot=null, carry=null, carryAt=null;   // carry = GC(กรอก) − spot ตอนกด (session-only, รีเฟรชแล้วหาย)
   function fetchSpot(){
     fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'})
       .then(function(r){return r.json();})
@@ -630,8 +643,22 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       .catch(function(){});
   }
   fetchSpot(); setInterval(fetchSpot,20000);
+  function setManual(){
+    var inp=document.getElementById('gcManual'), v=n(inp&&inp.value);
+    if(v==null||v<1000){ if(inp){inp.style.borderColor='var(--down)'; setTimeout(function(){inp.style.borderColor='';},900);} return; }
+    if(spot==null){ // ยังไม่มี spot → ใช้ราคาที่กรอกตรงๆ ไปก่อน แล้ว anchor ทันทีที่ spot มา
+      carry=null; carryAt=v; }
+    else { carry=v-spot; carryAt=null; }
+    if(inp) inp.blur();
+    tick();
+  }
+  function clearManual(){ carry=null; carryAt=null; var inp=document.getElementById('gcManual'); if(inp) inp.value=''; tick(); }
+  document.getElementById('gcSet').addEventListener('click', setManual);
+  document.getElementById('gcClear').addEventListener('click', clearManual);
+  document.getElementById('gcManual').addEventListener('keydown', function(e){ if(e.key==='Enter') setManual(); });
   function tick(){
     var el=document.getElementById('basisNum'); if(!el) return;
+    if(carryAt!=null && spot!=null){ carry=carryAt-spot; carryAt=null; }  // anchor ค้างไว้ พอ spot มาก็ล็อก carry
     var mp=(typeof MP!=='undefined'&&MP)?MP:null;
     var xau=null;
     if(mp){
@@ -642,7 +669,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }
     var gc=null, gcSrc='';
     var mfut = mp ? (n(mp.gcf)!=null?n(mp.gcf):(n(mp.gcFut)!=null?n(mp.gcFut):n(mp.gc))) : null;
-    if(mfut!=null){ gc=mfut; gcSrc='GC: MT5'; }
+    if(carry!=null && spot!=null){ gc=spot+carry; gcSrc='GC: กรอกเอง·ขยับตาม spot'; }
+    else if(carryAt!=null){ gc=carryAt; gcSrc='GC: กรอกเอง (รอ spot)'; }
+    else if(mfut!=null){ gc=mfut; gcSrc='GC: MT5'; }
     else if(spot!=null){ gc=spot; gcSrc='ทองสด·live'; }
     else if(typeof DATA!=='undefined'&&DATA&&n(DATA.priceGC)!=null){ gc=n(DATA.priceGC); gcSrc='GC: JANIE (ค้าง)'; }
     document.getElementById('bXau').textContent=f2(xau);
@@ -654,7 +683,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     el.textContent=(basis>=0?'+':'−')+Math.abs(basis).toFixed(2);
     el.style.color=basis>=0?'var(--up)':'var(--down)';
     srcEl.textContent=gcSrc;
-    if(gcSrc.indexOf('ทองสด')>=0) stEl.textContent=(basis>=0?'MT5 สูงกว่าทองสด (spot)':'MT5 ต่ำกว่าทองสด (spot)');
+    if(gcSrc.indexOf('กรอกเอง')>=0) stEl.textContent=(basis>=0?'XAUUSD พรีเมียมเหนือ GC':'XAUUSD ดิสเคานต์ต่ำกว่า GC')+' · carry '+(carry!=null?((carry>=0?'+':'−')+Math.abs(carry).toFixed(2)):'—');
+    else if(gcSrc.indexOf('ทองสด')>=0) stEl.textContent=(basis>=0?'MT5 สูงกว่าทองสด (spot)':'MT5 ต่ำกว่าทองสด (spot)')+' · กรอก GC จริงด้านล่างเพื่อ basis futures';
     else stEl.textContent=(basis>=0?'XAUUSD พรีเมียมเหนือ GC':'XAUUSD ดิสเคานต์ต่ำกว่า GC');
   }
   setInterval(tick,1000); tick();
