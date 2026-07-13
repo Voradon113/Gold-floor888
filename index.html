@@ -831,7 +831,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(n(mp.bid)!=null&&n(mp.ask)!=null)return (n(mp.bid)+n(mp.ask))/2;
     if(n(mp.bid)!=null)return n(mp.bid);
     return n(mp.xauusd); }
-  function curGc(mp){ if(mp){ if(n(mp.gcf)!=null)return n(mp.gcf); if(n(mp.gc)!=null)return n(mp.gc);}
+  function curGc(mp){ if(typeof window.__GC_LIVE==="number" && window.__GC_LIVE>0) return window.__GC_LIVE;
+    if(mp){ if(n(mp.gcf)!=null)return n(mp.gcf); if(n(mp.gc)!=null)return n(mp.gc);}
     if(typeof DATA!=='undefined'&&DATA&&n(DATA.priceGC)!=null)return n(DATA.priceGC); return null; }
 
   var alertsOn=false, ac=null, lastSide={}, alertLog=[];
@@ -1122,18 +1123,20 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   function fetchSpot(){
     fetch("https://api.gold-api.com/price/XAU",{cache:"no-store"})
       .then(function(r){return r.json();})
-      .then(function(d){ var p=Number(d&&d.price); if(p>0) spot=p; })
+      .then(function(d){ var p=Number(d&&d.price); if(p>0){ spot=p; pubGc(); } })
       .catch(function(){});
   }
+  var carry = null;
+  function pubGc(){ if(spot!=null) window.__GC_LIVE = (carry!=null) ? (spot + carry) : spot; }
   fetchSpot(); setInterval(fetchSpot,20000);
   function saveCarry(c){
     fetch(EP+"?mode=carry&wtok="+WTK+"&carry="+encodeURIComponent(c),{cache:"no-store"}).catch(function(){});
   }
   setBtn.addEventListener("click", function(){
     var v=Number(inp.value);
-    if(v>0 && spot!=null) saveCarry((v-spot).toFixed(2));
+    if(v>0 && spot!=null){ carry = v - spot; pubGc(); saveCarry(carry.toFixed(2)); }
   });
-  if(clrBtn) clrBtn.addEventListener("click", function(){ saveCarry(""); });
+  if(clrBtn) clrBtn.addEventListener("click", function(){ carry=null; pubGc(); saveCarry(""); });
   function restore(){
     if(restored || spot==null) return;
     fetch(EP+"?t="+Date.now(),{cache:"no-store"})
@@ -1142,6 +1145,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         var c=Number(p && p.carry);
         if(isFinite(c) && c!==0 && !restored){
           restored = true;
+          carry = c; pubGc();
           inp.value = (spot + c).toFixed(2);
           setBtn.click();
         }
