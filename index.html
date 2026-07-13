@@ -1150,7 +1150,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 })();
 </script>
 <div class="grid"><div class="card" id="jrCard">
-  <h2>📓 สถิติการเทรดจริง <span class="chip" id="jrChip">—</span></h2>
+  <h2>📓 สถิติการเทรดจริง
+    <span style="display:flex;gap:6px;align-items:center">
+      <button class="jrbtn on" data-d="1">วันนี้</button>
+      <button class="jrbtn" data-d="7">7 วัน</button>
+      <button class="jrbtn" data-d="0">ทั้งหมด</button>
+      <span class="chip" id="jrChip">—</span>
+    </span>
+  </h2>
   <div id="jrStats"></div>
 </div></div>
 
@@ -1173,7 +1180,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     ".jrbar i{display:block;height:100%;border-radius:3px}"+
     ".jrpl{text-align:right}.jrr{text-align:right;color:var(--faint)}"+
     ".jrhead{font:700 10px var(--mono);color:var(--faint);letter-spacing:1px;margin:14px 0 6px}"+
-    ".jrnote{margin-top:10px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.6}";
+    ".jrnote{margin-top:10px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.6}"+
+    ".jrbtn{cursor:pointer;font:700 10px var(--mono);padding:4px 9px;border-radius:99px;border:1px solid var(--line);"+
+    "background:var(--card2);color:var(--faint);text-transform:none;letter-spacing:.5px}"+
+    ".jrbtn.on{background:rgba(232,183,63,.16);color:var(--gold2);border-color:rgba(232,183,63,.4)}";
   document.head.appendChild(st);
 
   function money(v){ return (v>=0?"+$":"−$") + Math.abs(v).toFixed(2); }
@@ -1193,8 +1203,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }).join("");
   }
 
+  var jrDays = 1;   /* 1 = วันนี้ · 7 = 7 วัน · 0 = ทั้งหมด */
+
   function load(){
-    fetch(EP+"?mode=stats&t="+Date.now(),{cache:"no-store"})
+    fetch(EP+"?mode=stats&days="+jrDays+"&t="+Date.now(),{cache:"no-store"})
       .then(function(r){ return r.json(); })
       .then(function(s){
         var box = document.getElementById("jrStats");
@@ -1216,7 +1228,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
           else if(y.pl <= 0) verdict = "⚠️ ไม้ที่ทำตามแผนก็ยังไม่ทำเงิน → ต้องแก้ระบบก่อน อย่าเพิ่งทำบอท";
           else verdict = "ℹ️ ข้อมูลยังไม่ชี้ชัด — เก็บเพิ่มอีกหน่อย";
         }
-        if(s.trades < 30) verdict = "⏳ เก็บได้ " + s.trades + " ไม้ · ต่ำกว่า 30 ไม้ยังสรุปไม่ได้ (" + verdict.replace(/^[^ ]+ /,"") + ")";
+        if(jrDays === 0 && s.trades < 30) verdict = "⏳ เก็บได้ " + s.trades + " ไม้ · ต่ำกว่า 30 ไม้ยังสรุปไม่ได้";
 
         box.innerHTML =
           "<div class=\"jrtop\">"+
@@ -1231,6 +1243,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       })
       .catch(function(){});
   }
+  document.querySelectorAll(".jrbtn").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll(".jrbtn").forEach(function(x){ x.classList.remove("on"); });
+      b.classList.add("on");
+      jrDays = Number(b.getAttribute("data-d"));
+      load();
+    });
+  });
   load(); setInterval(load, 120000);
 })();
 </script>
