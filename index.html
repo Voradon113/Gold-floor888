@@ -971,7 +971,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     ".rgb{text-align:center;border-radius:99px;padding:3px 6px;font:700 9.5px var(--mono);letter-spacing:.5px}"+
     ".rgb.ok{background:rgba(47,209,141,.15);color:var(--up)}.rgb.mid{background:rgba(232,183,63,.15);color:var(--gold2)}"+
     ".rgb.far{background:rgba(240,96,74,.15);color:var(--down)}"+
-    ".rgfoot{margin-top:10px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.6}";
+    ".rgfoot{margin-top:10px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.6}"+
+    ".rgfix{margin-top:12px;border:1px solid rgba(240,96,74,.35);background:rgba(240,96,74,.07);border-radius:12px;padding:12px 13px}"+
+    ".rgfix h4{margin:0 0 8px;font:700 11px var(--mono);color:var(--down);letter-spacing:.5px}"+
+    ".rgfix .fx{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;line-height:1.55;padding:4px 0}"+
+    ".rgfix b{color:var(--gold2)}.rgfix s{color:var(--faint);opacity:.8}"+
+    ".rgok{margin-top:12px;border:1px solid rgba(47,209,141,.3);background:rgba(47,209,141,.06);border-radius:12px;padding:10px 12px;font:600 12px var(--mono);color:var(--up)}";
   document.head.appendChild(st);
 
   function n(v){return (v===null||v===undefined||v===""||isNaN(Number(v)))?null:Number(v);}
@@ -1053,6 +1058,46 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         "<span class=\"rgsd\">"+(x==null?"—":(x<=1?"1 SD":(x<=2?"2 SD":(x<=3?"3 SD":"3 SD+"))))+"</span>"+
         "<span class=\"rgb "+cls+"\">"+lbl+"</span></div>";
     }).join("");
+
+    /* ---- แผนฉบับปรับระยะ: ถ้า BSL/SSL ของ JANIE ไกลเกิน 2SD ให้ใช้กำแพงใกล้สุดแทน ---- */
+    var fix = document.getElementById("rgFix");
+    if(!fix){
+      fix = document.createElement("div");
+      fix.id = "rgFix";
+      var footEl = document.getElementById("rgFoot");
+      footEl.parentNode.insertBefore(fix, footEl);
+    }
+    var farOf = function(v){ if(v==null) return false; return sd!=null ? (Math.abs(v-px)/sd > 2) : (Math.abs(v-px)/px > 0.025); };
+    var bslFar = farOf(P.bsl), sslFar = farOf(P.ssl);
+    var nb = (bslFar && up) ? Number(up[0]) : null;
+    var ns = (sslFar && dn) ? Number(dn[0]) : null;
+    if((bslFar && nb) || (sslFar && ns)){
+      var B2 = nb!=null ? nb : P.bsl, S2 = ns!=null ? ns : P.ssl;
+      var side = (P.side||"").toUpperCase();
+      var rows = [];
+      if(side==="SHORT")
+        rows.push(["🎯","<b>เข้า:</b> ถ้ากวาดเหนือ <b>"+f0(B2)+"</b> แล้วกลับลง → SHORT"]);
+      else if(side==="LONG")
+        rows.push(["🎯","<b>เข้า:</b> ถ้ากวาดใต้ <b>"+f0(S2)+"</b> แล้วกลับขึ้น → LONG"]);
+      else
+        rows.push(["🎯","<b>กรอบเข้า:</b> สวนที่ <b>"+f0(S2)+"</b> (ล่าง) / <b>"+f0(B2)+"</b> (บน)"]);
+      rows.push(["⛔","<b>ยกเลิกเมื่อ:</b> ยืนเหนือ <b>"+f0(B2+10)+"</b> หรือหลุดใต้ <b>"+f0(S2-10)+"</b>"]);
+      var tg = [];
+      if(P.mean!=null) tg.push(f0(P.mean));
+      if(S2!=null && side==="SHORT") tg.push(f0(S2));
+      if(B2!=null && side==="LONG") tg.push(f0(B2));
+      if(tg.length) rows.push(["🏁","<b>เป้า:</b> "+tg.join(" → ")]);
+      var why = [];
+      if(bslFar && nb) why.push("BSL <s>"+f0(P.bsl)+"</s> → <b>"+f0(nb)+"</b>");
+      if(sslFar && ns) why.push("SSL <s>"+f0(P.ssl)+"</s> → <b>"+f0(ns)+"</b>");
+      fix.className = "rgfix";
+      fix.innerHTML = "<h4>⚠️ แผนจาก JANIE ใช้ระดับที่ไกลเกิน 2 SD — นี่คือฉบับปรับระยะ (คำนวณจากกำแพงใกล้สุด)</h4>"+
+        rows.map(function(r){ return '<div class="fx"><span>'+r[0]+'</span><div>'+r[1]+'</div></div>'; }).join("")+
+        '<div class="fx"><span>🔁</span><div style="color:var(--faint);font-size:12px">'+why.join(" · ")+'</div></div>';
+    } else {
+      fix.className = "rgok";
+      fix.innerHTML = "✅ แผนจาก JANIE อยู่ในระยะที่เอื้อมถึงแล้ว (ทุกระดับ ≤ 2 SD)";
+    }
 
     document.getElementById("rgFoot").innerHTML = (sd!=null)
       ? ("1SD วันนี้ ≈ ±"+Math.round(sd)+" จุด (คำนวณจากความผันผวนจริงของแท่งเทียน MT5) · "+
