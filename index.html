@@ -1154,5 +1154,90 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   var iv = setInterval(function(){ if(restored){ clearInterval(iv); return; } restore(); }, 1500);
 })();
 </script>
+<div class="grid"><div class="card" id="jrCard">
+  <h2>📓 สถิติการเทรดจริง <span class="chip" id="jrChip">—</span></h2>
+  <div id="jrStats"></div>
+</div></div>
+
+<script>
+/* สถิติจาก journal (Google Sheet) — EA จัดหมวดให้อัตโนมัติ ไม่ต้องกรอกเอง */
+(function(){
+  var EP = "https://script.google.com/macros/s/AKfycbwbmXYVogF4iMSMYDiHp2PiQiFQFErXvasymwgRTNQWwF0D-qJv62aWdOXaeQ_wCsE2fQ/exec";
+  var st = document.createElement("style");
+  st.textContent =
+    ".jrtop{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}"+
+    "@media(max-width:700px){.jrtop{grid-template-columns:repeat(2,1fr)}}"+
+    ".jrk{background:var(--card2);border-radius:12px;padding:11px 12px}"+
+    ".jrk small{display:block;color:var(--faint);font:600 9.5px var(--mono);letter-spacing:1px;margin-bottom:3px}"+
+    ".jrk b{font:700 20px var(--mono)}"+
+    ".jrrow{display:grid;grid-template-columns:1.3fr 52px 1fr 84px 62px;gap:8px;align-items:center;"+
+    "padding:7px 0;border-bottom:1px solid #191e24;font:600 12px var(--mono)}"+
+    ".jrrow:last-child{border-bottom:none}"+
+    ".jrname{color:var(--dim)}.jrn{color:var(--faint);text-align:right}"+
+    ".jrbar{height:6px;border-radius:3px;background:#1d232b;overflow:hidden}"+
+    ".jrbar i{display:block;height:100%;border-radius:3px}"+
+    ".jrpl{text-align:right}.jrr{text-align:right;color:var(--faint)}"+
+    ".jrhead{font:700 10px var(--mono);color:var(--faint);letter-spacing:1px;margin:14px 0 6px}"+
+    ".jrnote{margin-top:10px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.6}";
+  document.head.appendChild(st);
+
+  function money(v){ return (v>=0?"+$":"−$") + Math.abs(v).toFixed(2); }
+
+  function table(list, max){
+    if(!list || !list.length) return "<div class=\"empty\">ยังไม่มีข้อมูล</div>";
+    var mx = Math.max(1, max);
+    return list.map(function(x){
+      var w = Math.min(100, Math.abs(x.pl)/mx*100);
+      var col = x.pl>=0 ? "var(--up)" : "var(--down)";
+      return "<div class=\"jrrow\">"+
+        "<span class=\"jrname\">"+x.name+"</span>"+
+        "<span class=\"jrn\">"+x.n+" ไม้</span>"+
+        "<span class=\"jrbar\"><i style=\"width:"+w.toFixed(0)+"%;background:"+col+"\"></i></span>"+
+        "<span class=\"jrpl\" style=\"color:"+col+"\">"+money(x.pl)+"</span>"+
+        "<span class=\"jrr\">"+x.wr+"%</span></div>";
+    }).join("");
+  }
+
+  function load(){
+    fetch(EP+"?mode=stats&t="+Date.now(),{cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(s){
+        var box = document.getElementById("jrStats");
+        if(!box) return;
+        if(!s || !s.trades){ box.innerHTML = "<div class=\"empty\">ยังไม่มีไม้ในสมุด — เปิด EA JANIE_Journal ค้างไว้</div>"; return; }
+        document.getElementById("jrChip").textContent = s.trades + " ไม้";
+
+        var plCol = s.pl>=0 ? "var(--up)" : "var(--down)";
+        var mx = 0;
+        (s.bySetup||[]).forEach(function(x){ mx = Math.max(mx, Math.abs(x.pl)); });
+        (s.byPlan||[]).forEach(function(x){ mx = Math.max(mx, Math.abs(x.pl)); });
+
+        var plan = (s.byPlan||[]).filter(function(x){ return x.name==="Y"||x.name==="N"; });
+        var y = plan.filter(function(x){return x.name==="Y";})[0];
+        var n2 = plan.filter(function(x){return x.name==="N";})[0];
+        var verdict = "";
+        if(y && n2){
+          if(y.pl > 0 && n2.pl < 0) verdict = "✅ ไม้ที่ทำตามแผนทำเงิน · ไม้ที่ไม่ทำตามแผนขาดทุน → ปัญหาคือวินัย ไม่ใช่ระบบ";
+          else if(y.pl <= 0) verdict = "⚠️ ไม้ที่ทำตามแผนก็ยังไม่ทำเงิน → ต้องแก้ระบบก่อน อย่าเพิ่งทำบอท";
+          else verdict = "ℹ️ ข้อมูลยังไม่ชี้ชัด — เก็บเพิ่มอีกหน่อย";
+        }
+        if(s.trades < 30) verdict = "⏳ เก็บได้ " + s.trades + " ไม้ · ต่ำกว่า 30 ไม้ยังสรุปไม่ได้ (" + verdict.replace(/^[^ ]+ /,"") + ")";
+
+        box.innerHTML =
+          "<div class=\"jrtop\">"+
+            "<div class=\"jrk\"><small>จำนวนไม้</small><b>"+s.trades+"</b></div>"+
+            "<div class=\"jrk\"><small>WIN RATE</small><b style=\"color:"+(s.winRate>=50?"var(--up)":"var(--gold2)")+"\">"+s.winRate+"%</b></div>"+
+            "<div class=\"jrk\"><small>กำไรรวม</small><b style=\"color:"+plCol+"\">"+money(s.pl)+"</b></div>"+
+            "<div class=\"jrk\"><small>R เฉลี่ย</small><b>"+(s.avgR!=null?s.avgR:"—")+"</b></div>"+
+          "</div>"+
+          "<div class=\"jrhead\">แยกตาม SETUP (ระบบจัดหมวดเอง)</div>"+ table(s.bySetup, mx) +
+          "<div class=\"jrhead\">ทำตามแผน (มี SL + อิงระดับ) vs ไม่ทำ</div>"+ table(s.byPlan, mx) +
+          "<div class=\"jrnote\">"+verdict+"</div>";
+      })
+      .catch(function(){});
+  }
+  load(); setInterval(load, 120000);
+})();
+</script>
 </body>
 </html>
