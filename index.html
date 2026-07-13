@@ -1042,7 +1042,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       var pct=(d/px*100);
       var x = sd!=null ? ad/sd : null;
       var cls = x==null?"mid":(x<=1?"ok":(x<=2?"mid":"far"));
-      var lbl = x==null?"—":(x<=1?"เอื้อมถึง":(x<=2?"ตึง":"ไกลเกิน"));
+      var lbl = x==null?"—":(x<=1?"เอื้อมถึง":(x<=2?"ตึง":(x<=3?"ไกล":"ไกลเกิน")));
       var col = cls==="ok"?"var(--up)":(cls==="mid"?"var(--gold)":"var(--down)");
       var w = x==null?0:Math.min(100,(x/3)*100);
       return "<div class=\"rgrow\">"+
@@ -1050,7 +1050,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         "<span class=\"rgprice\">"+f0(r[1])+"</span>"+
         "<span class=\"rgbar\"><i style=\"width:"+w.toFixed(0)+"%;background:"+col+"\"></i></span>"+
         "<span class=\"rgdist\">"+(d>=0?"+":"−")+f0(ad)+" ("+(d>=0?"+":"−")+Math.abs(pct).toFixed(1)+"%)</span>"+
-        "<span class=\"rgsd\">"+(x==null?"—":x.toFixed(1)+" SD")+"</span>"+
+        "<span class=\"rgsd\">"+(x==null?"—":(x<=1?"1 SD":(x<=2?"2 SD":(x<=3?"3 SD":"3 SD+"))))+"</span>"+
         "<span class=\"rgb "+cls+"\">"+lbl+"</span></div>";
     }).join("");
 
@@ -1060,6 +1060,49 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       : "ยังคำนวณ 1SD ไม่ได้ (รอ EA ส่งแท่งเทียน) — ดูคอลัมน์ % ไปก่อน";
   }
   setInterval(tick,2000); tick();
+})();
+</script>
+<script>
+/* carry ถาวร — เก็บส่วนต่าง (GC − ทองสด) ไว้ใน Google Sheet แทน localStorage
+   กรอกราคา GC จริงครั้งเดียว → refresh/เปลี่ยนเครื่องก็จำได้ · GC วิ่งตามทองสดเรียลไทม์
+   ใช้ web token สาธารณะ (เขียนได้เฉพาะค่า carry จำกัด ±200) — ไม่มี token ลับของ EA อยู่ในหน้านี้ */
+(function(){
+  var EP  = "https://script.google.com/macros/s/AKfycbwbmXYVogF4iMSMYDiHp2PiQiFQFErXvasymwgRTNQWwF0D-qJv62aWdOXaeQ_wCsE2fQ/exec";
+  var WTK = "GC-CARRY-WEB-2026";
+  var inp = document.getElementById("gcManual");
+  var setBtn = document.getElementById("gcSet");
+  var clrBtn = document.getElementById("gcClear");
+  if(!inp || !setBtn) return;
+  var spot = null, restored = false;
+  function fetchSpot(){
+    fetch("https://api.gold-api.com/price/XAU",{cache:"no-store"})
+      .then(function(r){return r.json();})
+      .then(function(d){ var p=Number(d&&d.price); if(p>0) spot=p; })
+      .catch(function(){});
+  }
+  fetchSpot(); setInterval(fetchSpot,20000);
+  function saveCarry(c){
+    fetch(EP+"?mode=carry&wtok="+WTK+"&carry="+encodeURIComponent(c),{cache:"no-store"}).catch(function(){});
+  }
+  setBtn.addEventListener("click", function(){
+    var v=Number(inp.value);
+    if(v>0 && spot!=null) saveCarry((v-spot).toFixed(2));
+  });
+  if(clrBtn) clrBtn.addEventListener("click", function(){ saveCarry(""); });
+  function restore(){
+    if(restored || spot==null) return;
+    fetch(EP+"?t="+Date.now(),{cache:"no-store"})
+      .then(function(r){return r.json();})
+      .then(function(p){
+        var c=Number(p && p.carry);
+        if(isFinite(c) && c!==0 && !restored){
+          restored = true;
+          inp.value = (spot + c).toFixed(2);
+          setBtn.click();
+        }
+      }).catch(function(){});
+  }
+  var iv = setInterval(function(){ if(restored){ clearInterval(iv); return; } restore(); }, 1500);
 })();
 </script>
 </body>
