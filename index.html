@@ -1353,5 +1353,120 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   setInterval(tick,2000); tick();
 })();
 </script>
+<script>
+/* ===== COT · รายใหญ่ (CFTC Disaggregated · GOLD 088691) — add-on อ่านอย่างเดียว ===== */
+(function(){
+  var st=document.createElement("style");
+  st.textContent=
+    ".cotwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}"+
+    "@media(max-width:900px){.cotwrap{grid-template-columns:1fr}}"+
+    ".cotbig{font:800 40px/1 var(--mono);letter-spacing:-1px}"+
+    ".cotbig small{display:block;font:600 10px/1 var(--mono);color:var(--faint);letter-spacing:.14em;margin-bottom:7px}"+
+    ".cotsub{color:var(--dim);font-size:12px;margin-top:9px}"+
+    ".cotmeter{height:9px;border-radius:99px;background:var(--track);position:relative;margin-top:12px}"+
+    ".cotmeter i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,#2fd18d,#e8b73f,#f0604a)}"+
+    ".cotmeter b{position:absolute;top:-4px;width:3px;height:17px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 2px var(--card)}"+
+    ".cotrow{display:flex;align-items:center;gap:9px;margin:8px 0;font-size:12px}"+
+    ".cotrow em{width:104px;color:var(--dim);font-style:normal;font-weight:600;text-align:right;flex:none}"+
+    ".cotbar{flex:1;height:15px;background:var(--track);border-radius:5px;position:relative}"+
+    ".cotbar u{position:absolute;top:0;bottom:0;border-radius:4px;text-decoration:none}"+
+    ".cotbar s{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line);text-decoration:none}"+
+    ".cotval{width:74px;text-align:right;font:700 12px var(--mono);flex:none}"+
+    ".cotnote{margin-top:14px;padding:11px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;line-height:1.7}";
+  document.head.appendChild(st);
+
+  var g=document.createElement("div"); g.className="grid";
+  g.innerHTML='<div class="card"><h2>🏛️ COT · รายใหญ่ถือทองอยู่ตรงไหน <span class="chip" id="cotChip">กำลังโหลด…</span></h2><div id="cotBody" style="color:var(--dim);font-size:12px">กำลังดึงข้อมูลจาก CFTC…</div></div>';
+  var grids=document.querySelectorAll(".wrap > .grid");
+  var anchor=grids[6]||null;
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g,anchor);
+  else document.querySelector(".wrap").appendChild(g);
+
+  var N=function(x){return Number(x||0);};
+  var K=function(v){return (v<0?"−":"+")+Math.abs(Math.round(v)).toLocaleString("en-US");};
+  var TM=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  function thDate(iso){var d=new Date(iso);return d.getUTCDate()+" "+TM[d.getUTCMonth()]+" "+(d.getUTCFullYear()+543);}
+
+  function spark(v,w,h){
+    var a=v.concat([0]), mn=Math.min.apply(null,a), mx=Math.max.apply(null,a), sp=(mx-mn)||1;
+    var X=function(i){return 4+i*(w-8)/((v.length-1)||1);};
+    var Y=function(q){return h-8-(q-mn)/sp*(h-16);};
+    var d=v.map(function(q,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(q).toFixed(1);}).join(" ");
+    var area=d+" L"+X(v.length-1).toFixed(1)+" "+Y(mn).toFixed(1)+" L"+X(0).toFixed(1)+" "+Y(mn).toFixed(1)+" Z";
+    var zy=Y(0).toFixed(1);
+    return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="width:100%;height:'+h+'px;display:block">'
+      +'<defs><linearGradient id="cotgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8b73f" stop-opacity=".30"/><stop offset="1" stop-color="#e8b73f" stop-opacity="0"/></linearGradient></defs>'
+      +'<path d="'+area+'" fill="url(#cotgr)"/>'
+      +'<line x1="0" y1="'+zy+'" x2="'+w+'" y2="'+zy+'" stroke="var(--line)" stroke-dasharray="3 3"/>'
+      +'<path d="'+d+'" fill="none" stroke="#e8b73f" stroke-width="2" stroke-linejoin="round"/>'
+      +'<circle cx="'+X(v.length-1).toFixed(1)+'" cy="'+Y(v[v.length-1]).toFixed(1)+'" r="3.5" fill="#e8b73f"/></svg>';
+  }
+  function row(lab,val,mx){
+    var pct=Math.min(50,Math.abs(val)/(mx||1)*50);
+    var col=val>=0?"#2fd18d":"#f0604a";
+    var s=val>=0?("left:50%;width:"+pct.toFixed(1)+"%"):("right:50%;width:"+pct.toFixed(1)+"%");
+    return '<div class="cotrow"><em>'+lab+'</em><div class="cotbar"><s></s><u style="'+s+';background:'+col+'"></u></div><div class="cotval" style="color:'+col+'">'+K(val)+'</div></div>';
+  }
+
+  var CURL="https://publicreporting.cftc.gov/resource/72hh-3qpy.json"
+    +"?$select=report_date_as_yyyy_mm_dd,open_interest_all,m_money_positions_long_all,m_money_positions_short_all,"
+    +"prod_merc_positions_long,prod_merc_positions_short,swap_positions_long_all,swap__positions_short_all,"
+    +"other_rept_positions_long,other_rept_positions_short,nonrept_positions_long_all,nonrept_positions_short_all"
+    +"&$where=cftc_contract_market_code='088691'&$order=report_date_as_yyyy_mm_dd DESC&$limit=160";
+
+  function render(rows){
+    var body=document.getElementById("cotBody"), chip=document.getElementById("cotChip");
+    if(!body) return;
+    if(!rows||!rows.length){ body.textContent="ดึงข้อมูล COT ไม่ได้ (CFTC ไม่ตอบ)"; return; }
+    var mmNet=function(r){return N(r.m_money_positions_long_all)-N(r.m_money_positions_short_all);};
+    var c=rows[0], p=rows[1]||c;
+    var net=mmNet(c), chg=net-mmNet(p);
+    var m4=rows[4]?net-mmNet(rows[4]):0;
+    var all=rows.map(mmNet);
+    var pctile=Math.round(all.filter(function(q){return q<=net;}).length/all.length*100);
+    var ser=all.slice(0,52).reverse();
+
+    var pm=N(c.prod_merc_positions_long)-N(c.prod_merc_positions_short);
+    var sw=N(c.swap_positions_long_all)-N(c.swap__positions_short_all);
+    var ot=N(c.other_rept_positions_long)-N(c.other_rept_positions_short);
+    var nr=N(c.nonrept_positions_long_all)-N(c.nonrept_positions_short_all);
+    var mx=Math.max(Math.abs(net),Math.abs(pm),Math.abs(sw),Math.abs(ot),Math.abs(nr));
+
+    var side=net>0?"ซื้อ (Net Long)":"ขาย (Net Short)";
+    var sc=net>0?"#2fd18d":"#f0604a";
+    var crowd=pctile>=85?"แออัดมาก":pctile>=65?"ค่อนข้างแน่น":pctile>=35?"กลางๆ":pctile>=15?"ค่อนข้างบาง":"บางมาก";
+
+    var t1=net>0
+      ? "กองทุนเก็งกำไร (Managed Money) <b>ถือฝั่งซื้อสุทธิ "+Math.abs(net).toLocaleString("en-US")+" สัญญา</b> — รายใหญ่ยัง<b>อยู่ข้างขาขึ้น</b>"
+      : "กองทุนเก็งกำไร <b>ถือฝั่งขายสุทธิ "+Math.abs(net).toLocaleString("en-US")+" สัญญา</b> — รายใหญ่<b>อยู่ข้างขาลง</b>";
+    var t2=chg>0?"สัปดาห์ล่าสุด <b style='color:#2fd18d'>เพิ่มฝั่งซื้อ "+K(chg)+"</b> สัญญา (สะสมต่อ)"
+      :chg<0?"สัปดาห์ล่าสุด <b style='color:#f0604a'>ลดฝั่งซื้อ "+K(chg)+"</b> สัญญา (เริ่มขายทำกำไร)"
+      :"สัปดาห์ล่าสุดแทบไม่ขยับ";
+    var t4=m4>0?"4 สัปดาห์: <b style='color:#2fd18d'>สะสมเพิ่ม "+K(m4)+"</b>":m4<0?"4 สัปดาห์: <b style='color:#f0604a'>ลดของ "+K(m4)+"</b>":"4 สัปดาห์: ทรงตัว";
+    var t3;
+    if(pctile>=85) t3="⚠️ ระดับนี้<b>สูงกว่า "+pctile+"% ของ 3 ปีที่ผ่านมา</b> — ฝั่งซื้อแออัด คนที่จะซื้อ ซื้อไปเกือบหมดแล้ว เวลากลับตัวมักลงแรงและเร็ว → ถ้าจะเก็บยาว ควร<b>ทยอยเข้า</b> อย่าเข้าทีเดียว";
+    else if(pctile<=15) t3="🟢 ระดับนี้<b>ต่ำกว่า "+(100-pctile)+"% ของ 3 ปี</b> — รายใหญ่ยังถือน้อย มีที่ว่างให้เข้าซื้ออีกเยอะ ตามสถิติเป็นโซนที่<b>เสี่ยงต่ำกว่า</b>สำหรับการสะสมยาว";
+    else t3="ระดับนี้อยู่ที่ <b>เปอร์เซ็นไทล์ "+pctile+"</b> ของ 3 ปี — ยังไม่สุดโต่งทั้งสองทาง ("+crowd+")";
+
+    if(chip) chip.textContent="ข้อมูล ณ "+thDate(c.report_date_as_yyyy_mm_dd)+" · CFTC รายสัปดาห์";
+    body.innerHTML='<div class="cotwrap"><div>'
+      +'<div class="cotbig"><small>MANAGED MONEY · NET</small><span style="color:'+sc+'">'+K(net)+'</span></div>'
+      +'<div class="cotsub">ฝั่ง<b style="color:'+sc+'">'+side+'</b> · Long '+N(c.m_money_positions_long_all).toLocaleString("en-US")+' / Short '+N(c.m_money_positions_short_all).toLocaleString("en-US")+'</div>'
+      +'<div style="margin-top:16px;color:var(--faint);font-size:11px">ความแออัดเทียบ 3 ปี · <b style="color:var(--ink)">'+pctile+'</b> เปอร์เซ็นไทล์ ('+crowd+')</div>'
+      +'<div class="cotmeter"><i style="width:100%;opacity:.32"></i><b style="left:calc('+pctile+'% - 1.5px)"></b></div>'
+      +'<div style="display:flex;justify-content:space-between;color:var(--faint);font-size:10px;margin-top:5px"><span>ขายสุด</span><span>ปกติ</span><span>ซื้อแออัด</span></div>'
+      +'<div style="margin-top:16px;color:var(--faint);font-size:10.5px;letter-spacing:.1em">NET 52 สัปดาห์</div>'
+      +spark(ser,300,70)
+      +'</div><div>'
+      +'<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-bottom:8px">สถานะสุทธิ แยกกลุ่มผู้เล่น</div>'
+      +row("กองทุนเก็งกำไร",net,mx)+row("รายใหญ่อื่น",ot,mx)+row("รายย่อย",nr,mx)+row("ผู้ผลิต/ผู้ค้า",pm,mx)+row("ดีลเลอร์ (Swap)",sw,mx)
+      +'<div style="color:var(--faint);font-size:10.5px;line-height:1.6;margin-top:10px">เขียว = ถือซื้อสุทธิ · แดง = ถือขายสุทธิ · ผู้ผลิต/ดีลเลอร์ติดลบเป็น<b>เรื่องปกติ</b> (เขา hedge ของจริง ไม่ได้เก็งกำไร) — ตัวที่บอกทิศจริงคือ<b>กองทุนเก็งกำไร</b></div>'
+      +'</div></div>'
+      +'<div class="cotnote">'+t1+'<br>'+t2+' · '+t4+'<br>'+t3+'<br><span style="color:var(--faint);font-size:11px">📅 CFTC ออกทุกวันเสาร์เช้า (เวลาไทย) เป็นสถานะ ณ วันอังคาร → ข้อมูลช้า 3 วัน · ใช้ดู<b>ภาพใหญ่/เก็บยาว</b> ไม่ใช่สัญญาณเข้าออกรายวัน · ไม่ใช่คำแนะนำการลงทุน</span></div>';
+  }
+  function load(){ fetch(CURL).then(function(r){return r.json();}).then(render).catch(function(e){ var b=document.getElementById("cotBody"); if(b) b.textContent="ดึง COT ไม่ได้: "+e.message; }); }
+  load(); setInterval(load, 30*60*1000);
+})();
+</script>
 </body>
 </html>
