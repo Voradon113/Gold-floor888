@@ -63,6 +63,8 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .grid{display:grid;gap:14px;margin-top:14px}
 .g3{grid-template-columns:1fr 1fr 1fr}
 .g2{grid-template-columns:1.35fr .65fr}
+.g2e{grid-template-columns:1fr 1fr}
+@media(max-width:960px){.g2e{grid-template-columns:1fr}}
 @media(max-width:960px){.g3,.g2{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;
   position:relative;overflow:hidden;box-shadow:var(--shadow)}
@@ -261,7 +263,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
     <div class="sdxnote" id="sdxNote">เส้นระดับจาก JANIE (GC) แปลงเป็น XAUUSD ด้วย basis · เส้นราคา = XAUUSD สดตั้งแต่เปิดหน้า</div>
   </div></div>
 
-  <div class="grid g3">
+  <div class="grid g2e">
     <div class="card">
       <h2>Bias <span class="chip" id="pcrChip">PCR —</span></h2>
       <div class="gauge">
@@ -282,11 +284,6 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
         <div class="glbl" id="biasLbl">รอข้อมูล</div>
         <div class="gsub"><span>ฝั่งขาย</span><span id="oiChip">—</span><span>ฝั่งซื้อ</span></div>
       </div>
-    </div>
-
-    <div class="card">
-      <h2>แผนที่ราคา <span class="chip" id="zoneChip">—</span></h2>
-      <svg class="ladder" id="ladder" viewBox="0 0 300 290"></svg>
     </div>
 
     <div class="card">
@@ -487,6 +484,7 @@ function render(){
 }
 
 function ladder(){
+  if(!document.getElementById("ladder")) return;
   const P=DATA.plan||{}, px=DATA.priceGC, mean=DATA.mean, bsl=P.bsl, ssl=P.ssl;
   const walls=(DATA.heat||[]).filter(h=>h[1]!=='now');
   const wUp = px!=null ? walls.filter(h=>h[0]>px).sort((a,b)=>a[0]-b[0])[0] : null;
