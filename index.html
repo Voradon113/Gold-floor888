@@ -1301,5 +1301,57 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   load(); setInterval(load, 120000);
 })();
 </script>
+<script>
+/* BIAS: โซนไร้สัญญาณ (−20..+20) + บอกว่าคำนวณจากภาพเมื่อไหร่ — non-invasive */
+(function(){
+  var st=document.createElement("style");
+  st.textContent=".biasnote{margin-top:10px;font:600 10.5px var(--mono);color:var(--faint);text-align:center;line-height:1.6}";
+  document.head.appendChild(st);
+
+  function ageT(iso){
+    if(!iso) return "—";
+    var t=new Date(iso).getTime(); if(isNaN(t)) return "—";
+    var s=Math.max(0,(Date.now()-t)/1000);
+    return s<60 ? Math.round(s)+" วิ" : s<3600 ? Math.round(s/60)+" นาที" : Math.round(s/3600)+" ชม.";
+  }
+
+  /* วาดโซนเทากลางเกจครั้งเดียว */
+  function drawDeadZone(){
+    var nd=document.getElementById("needle"); if(!nd) return;
+    var svg=nd.ownerSVGElement; if(!svg || svg.querySelector("#deadzone")) return;
+    var cx=110, cy=108, r=90;
+    function pt(b){ var a=(180-(b+100)/200*180)*Math.PI/180; return [cx+r*Math.cos(a), cy-r*Math.sin(a)]; }
+    var p1=pt(-20), p2=pt(20);
+    var path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("id","deadzone");
+    path.setAttribute("d","M"+p1[0].toFixed(1)+" "+p1[1].toFixed(1)+" A"+r+" "+r+" 0 0 1 "+p2[0].toFixed(1)+" "+p2[1].toFixed(1));
+    path.setAttribute("fill","none");
+    path.setAttribute("stroke","var(--faint)");
+    path.setAttribute("stroke-width","11");
+    path.setAttribute("stroke-linecap","butt");
+    path.setAttribute("opacity",".85");
+    svg.insertBefore(path, nd);
+  }
+
+  function tick(){
+    drawDeadZone();
+    var D=(typeof DATA!=="undefined")?DATA:null;
+    var J=(typeof JP!=="undefined")?JP:null;
+    var numEl=document.getElementById("biasNum"), lblEl=document.getElementById("biasLbl");
+    if(!D || !numEl || !lblEl) return;
+
+    var note=document.getElementById("biasNote");
+    if(!note){ note=document.createElement("div"); note.id="biasNote"; note.className="biasnote"; lblEl.parentNode.appendChild(note); }
+
+    var b=Number(D.bias);
+    var img=(J && J.intraday) ? J.intraday.updatedFromImage : null;
+    var dead = isFinite(b) && Math.abs(b)<=20;
+    if(dead) numEl.style.color="var(--faint)";
+    note.innerHTML = (dead ? "⚪ อยู่ในโซนไร้สัญญาณ (−20 ถึง +20) — สลับ +/− ในโซนนี้ ไม่ถือว่าเปลี่ยนทิศ<br>" : "") +
+      "📸 คำนวณจากภาพล่าสุด · " + ageT(img) + "ที่แล้ว (ไม่ใช่ค่าเรียลไทม์ — เปลี่ยนเฉพาะตอนส่งภาพใหม่)";
+  }
+  setInterval(tick,2000); tick();
+})();
+</script>
 </body>
 </html>
