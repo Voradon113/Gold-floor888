@@ -987,6 +987,25 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   }
   fetchSpot(); setInterval(fetchSpot,20000);
 
+  /* แนวรับ-ต้านจากแท่งเทียน MT5 (แปลงเป็นสเกล GC ด้วย basis) */
+  function structLevels(px){
+    var mp = (typeof MP!=="undefined" && MP) ? MP : null;
+    var c = (mp && Array.isArray(mp.candles)) ? mp.candles : null;
+    if(!c || c.length < 12 || px==null) return null;
+    var k = Math.min(c.length-1, 32);
+    var hi = -1e12, lo = 1e12;
+    for(var i = c.length-1-k; i < c.length-1; i++){
+      var h = Number(c[i][2]), l = Number(c[i][3]);
+      if(h > hi) hi = h;
+      if(l < lo) lo = l;
+    }
+    if(!(hi > 0) || !(lo > 0)) return null;
+    var xau = n(mp.bid);
+    var gcLive = (typeof window.__GC_LIVE === "number" && window.__GC_LIVE > 0) ? window.__GC_LIVE : null;
+    var basis = (xau != null && gcLive != null) ? (xau - gcLive) : 0;
+    return { hi: hi - basis, lo: lo - basis };
+  }
+
   /* 1SD รายวัน (จุด) จาก stdev ของผลตอบแทนต่อแท่ง × sqrt(แท่งต่อวัน) */
   function dailySD(){
     var mp=(typeof MP!=="undefined"&&MP)?MP:null;
@@ -1019,18 +1038,28 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       var be=heat.filter(function(h){return Number(h[0])<px;}).sort(function(a,b){return b[0]-a[0];});
       up=ab[0]||null; dn=be[0]||null;
     }
-    document.getElementById("rgPlay").innerHTML = (up&&dn)
-      ? ("กรอบเล่นจริงวันนี้ (กำแพงใกล้ราคาที่สุด) : <b>"+f0(dn[0])+"</b> ↔ <b>"+f0(up[0])+"</b>"+
+    var stp = structLevels(px);
+    document.getElementById("rgPlay").innerHTML = stp
+      ? ("กรอบเล่นจริงวันนี้ (จากกราฟ M15 จริง) : <b>"+f0(stp.lo)+"</b> ↔ <b>"+f0(stp.hi)+"</b>"+
          " &nbsp;·&nbsp; ราคาตอนนี้ <b>"+f0(px)+"</b>")
-      : "รอข้อมูลกำแพง OI จาก JANIE";
+      : "รอแท่งเทียนจาก MT5";
 
+    /* แนวรับ-ต้านจากแท่งเทียนจริงของ MT5 (สดเสมอ) — ไม่พึ่งกำแพง OI ที่อาจค้าง */
+    var st = structLevels(px);
     var rows=[];
-    function add(name,val){ if(n(val)!=null) rows.push([name,Number(val)]); }
-    add("BSL · กำแพงบน",P.bsl);
-    if(up) add("กำแพงใกล้สุด ↑",up[0]);
-    add("Mean · แกนกลาง",P.mean!=null?P.mean:D.mean);
-    if(dn) add("กำแพงใกล้สุด ↓",dn[0]);
-    add("SSL · กำแพงล่าง",P.ssl);
+    var hidden=[];
+    function add(name,val){
+      if(n(val)==null) return;
+      var v=Number(val);
+      var far = sd!=null ? (Math.abs(v-px)/sd > 2) : (Math.abs(v-px)/px > 0.025);
+      if(far){ hidden.push(name+" "+f0(v)); return; }   /* ไกลเกิน = ไม่แสดง */
+      rows.push([name, v]);
+    }
+    if(st){ rows.push(["แนวต้าน (กราฟ M15)", st.hi]); }
+    add("BSL · กำแพง OI", P.bsl);
+    add("Mean · แกนกลาง", P.mean!=null?P.mean:D.mean);
+    add("SSL · กำแพง OI", P.ssl);
+    if(st){ rows.push(["แนวรับ (กราฟ M15)", st.lo]); }
     (Array.isArray(P.targets)?P.targets:[]).forEach(function(t,i){ add("เป้า "+(i+1),t); });
 
     var seen={};
@@ -1065,8 +1094,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }
     var farOf = function(v){ if(v==null) return false; return sd!=null ? (Math.abs(v-px)/sd > 2) : (Math.abs(v-px)/px > 0.025); };
     var bslFar = farOf(P.bsl), sslFar = farOf(P.ssl);
-    var nb = (bslFar && up) ? Number(up[0]) : null;
-    var ns = (sslFar && dn) ? Number(dn[0]) : null;
+    var stf = structLevels(px);
+    var nb = (bslFar && stf) ? Number(stf.hi) : null;
+    var ns = (sslFar && stf) ? Number(stf.lo) : null;
     if((bslFar && nb) || (sslFar && ns)){
       var B2 = nb!=null ? nb : P.bsl, S2 = ns!=null ? ns : P.ssl;
       var side = (P.side||"").toUpperCase();
@@ -1084,10 +1114,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       if(B2!=null && side==="LONG") tg.push(f0(B2));
       if(tg.length) rows.push(["🏁","<b>เป้า:</b> "+tg.join(" → ")]);
       var why = [];
-      if(bslFar && nb) why.push("BSL <s>"+f0(P.bsl)+"</s> → <b>"+f0(nb)+"</b>");
-      if(sslFar && ns) why.push("SSL <s>"+f0(P.ssl)+"</s> → <b>"+f0(ns)+"</b>");
+      if(bslFar && nb) why.push("BSL <s>"+f0(P.bsl)+"</s> → <b>"+f0(nb)+"</b> (แนวต้านจริงบนกราฟ)");
+      if(sslFar && ns) why.push("SSL <s>"+f0(P.ssl)+"</s> → <b>"+f0(ns)+"</b> (แนวรับจริงบนกราฟ)");
       fix.className = "rgfix";
-      fix.innerHTML = "<h4>⚠️ แผนจาก JANIE ใช้ระดับที่ไกลเกิน 2 SD — นี่คือฉบับปรับระยะ (คำนวณจากกำแพงใกล้สุด)</h4>"+
+      fix.innerHTML = "<h4>⚠️ แผนจาก JANIE ใช้ระดับที่ไกลเกิน 2 SD (กำแพง OI ค้าง) — นี่คือฉบับปรับระยะ จากแนวรับ-ต้านจริงบนกราฟ</h4>"+
         rows.map(function(r){ return '<div class="fx"><span>'+r[0]+'</span><div>'+r[1]+'</div></div>'; }).join("")+
         '<div class="fx"><span>🔁</span><div style="color:var(--faint);font-size:12px">'+why.join(" · ")+'</div></div>';
     } else {
@@ -1095,7 +1125,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       fix.innerHTML = "✅ แผนจาก JANIE อยู่ในระยะที่เอื้อมถึงแล้ว (ทุกระดับ ≤ 2 SD)";
     }
 
-    document.getElementById("rgFoot").innerHTML = (sd!=null)
+    var hideNote = hidden.length ? ("<br>🚫 ซ่อนระดับที่ไกลเกิน 2 SD: " + hidden.join(" · ") + " (ไกลเกินกว่าจะเกิดในวันเดียว)") : "";
+    document.getElementById("rgFoot").innerHTML = hideNote + (sd!=null)
       ? ("1SD วันนี้ ≈ ±"+Math.round(sd)+" จุด (คำนวณจากความผันผวนจริงของแท่งเทียน MT5) · "+
          "ภายใน ±1SD = โอกาส ~68% ที่ราคาจะอยู่ในกรอบนี้ภายในวัน · เกิน 2SD = แทบไม่เกิดในวันเดียว → แผนนั้น \"รอไปเถอะ\"")
       : "ยังคำนวณ 1SD ไม่ได้ (รอ EA ส่งแท่งเทียน) — ดูคอลัมน์ % ไปก่อน";
