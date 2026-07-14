@@ -1530,19 +1530,22 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   function btc(){
     var P={}, done=0;
     function fin(){
-      if(++done<3) return;
+      if(++done<4) return;
       var b=document.getElementById("btBody"), c=document.getElementById("btChip");
       if(!b) return;
       var px=P.px, chg=P.chg, hist=P.hist, fg=P.fg;
-      if(!px||!hist){ b.textContent="ดึงข้อมูล BTC ไม่ได้"; return; }
-      var ath=Math.max.apply(null,hist), dd=(px/ath-1)*100;
-      var ma=hist.slice(-200).reduce(function(a,x){return a+x;},0)/Math.min(200,hist.length);
-      var vs=(px/ma-1)*100, below=px<ma;
+      if(px==null && P.pxAlt!=null) px=P.pxAlt;
+      if(!px){ b.textContent="ดึงข้อมูล BTC ไม่ได้"; return; }
+      var hasH = !!(hist && hist.length>30);
+      var ath=hasH?Math.max.apply(null,hist):null, dd=hasH?(px/ath-1)*100:null;
+      var ma=hasH?hist.slice(-200).reduce(function(a,x){return a+x;},0)/Math.min(200,hist.length):null;
+      var vs=hasH?(px/ma-1)*100:null, below=hasH?(px<ma):false;
       var days=Math.floor((Date.now()-HALV)/86400000), cyp=Math.min(100,days/CYC*100);
       var fgv=fg!=null?fg:null;
       var fgCol=fgv==null?"var(--dim)":fgv<=25?UP:fgv>=75?DN:GD;
       var note;
-      if(fgv!=null && fgv<=25 && below)
+      if(!hasH) note="⚠️ โหลดกราฟ 1 ปีไม่ได้ (CoinGecko จำกัดจำนวนครั้งต่อ IP — เน็ตมือถือมักโดน) → โชว์เฉพาะราคาสด + ความกลัว";
+      else if(fgv!=null && fgv<=25 && below)
         note="😱 <b>ตลาดกลัวสุดขีด</b> + ราคา<b>ต่ำกว่าเส้น 200 วัน</b> — ในอดีตสภาพแบบนี้คือช่วงที่ของถูก แต่ต้องพูดตรงๆ: มันเคยลากยาวหลายเดือนและ<b>ลงต่อได้อีก</b> · ตัวเลขพวกนี้บอก \"โซน\" ไม่ได้บอก \"จังหวะ\"";
       else if(fgv!=null && fgv>=75)
         note="🤑 <b>ตลาดโลภจัด</b> — ของไม่ถูกแล้ว ถ้าจะเข้า ระวังการไล่ราคา";
@@ -1550,10 +1553,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         note=below?"ราคายัง<b>ต่ำกว่าเส้น 200 วัน</b> — โครงสร้างยังไม่กลับเป็นขาขึ้น":"ราคา<b>เหนือเส้น 200 วัน</b> — โครงสร้างกลับมาเป็นขาขึ้นแล้ว";
       if(c) c.textContent="สด · CoinGecko";
       b.innerHTML=
-        '<div class="mkbig"><small>BTC / USD</small>$'+f0(px)+' <span style="font-size:13px;color:'+(chg>=0?UP:DN)+'">'+pc(chg)+'</span></div>'
+        '<div class="mkbig"><small>BTC / USD</small>$'+f0(px)+(chg==null?"":(' <span style="font-size:13px;color:'+(chg>=0?UP:DN)+'">'+pc(chg)+'</span>'))+'</div>'
         +'<div class="mkstat">'
-        +  '<div><small>จาก ATH 1 ปี</small><b style="color:'+(dd<0?DN:UP)+'">'+pc(dd)+'</b></div>'
-        +  '<div><small>เทียบเส้น 200 วัน</small><b style="color:'+(vs<0?DN:UP)+'">'+pc(vs)+'</b></div>'
+        +  (hasH?('<div><small>จาก ATH 1 ปี</small><b style="color:'+(dd<0?DN:UP)+'">'+pc(dd)+'</b></div>'):"")
+        +  (hasH?('<div><small>เทียบเส้น 200 วัน</small><b style="color:'+(vs<0?DN:UP)+'">'+pc(vs)+'</b></div>'):"")
         +  '<div><small>FEAR &amp; GREED</small><b style="color:'+fgCol+'">'+(fgv==null?"—":fgv)+'</b></div>'
         +'</div>'
         +'<div class="mklbl">ความกลัว ↔ ความโลภ</div>'
@@ -1562,13 +1565,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<div class="mklbl">วงจร 4 ปี · วันที่ '+days.toLocaleString("en-US")+' หลัง halving</div>'
         +'<div class="mkbar"><i style="width:'+cyp.toFixed(1)+'%;background:'+GD+';opacity:.5"></i><u style="left:calc('+cyp.toFixed(1)+'% - 1.5px)"></u></div>'
         +'<div class="mkends"><span>halving เม.ย. 2024</span><span>halving ถัดไป ~2028</span></div>'
-        +'<div class="mklbl">ราคา 1 ปี</div>'+spark(hist,300,54,GD)
+        +(hasH?('<div class="mklbl">ราคา 1 ปี</div>'+spark(hist,300,54,GD)):"")
         +'<div class="mknote">'+note+'<br><span style="color:var(--faint);font-size:11px">⚠️ ข้อมูลประกอบการตัดสินใจเท่านั้น · ไม่ใช่คำแนะนำการลงทุน · คริปโตผันผวนสูงมาก เสียเงินต้นทั้งหมดได้</span></div>';
     }
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true")
       .then(function(r){return r.json();}).then(function(j){ P.px=j.bitcoin.usd; P.chg=j.bitcoin.usd_24h_change; }).catch(function(){}).then(fin);
     fetch("https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=365&interval=daily")
       .then(function(r){return r.json();}).then(function(j){ P.hist=j.prices.map(function(x){return x[1];}); }).catch(function(){}).then(fin);
+    fetch("https://api.gold-api.com/price/BTC")
+      .then(function(r){return r.json();}).then(function(j){ P.pxAlt=Number(j.price); }).catch(function(){}).then(fin);
     fetch("https://api.alternative.me/fng/?limit=1")
       .then(function(r){return r.json();}).then(function(j){ P.fg=Number(j.data[0].value); }).catch(function(){}).then(fin);
   }
