@@ -1479,5 +1479,155 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   load(); setInterval(load, 30*60*1000);
 })();
 </script>
+<script>
+/* ===== ตลาดรอบข้าง: BTC · DXY · Gold/Silver — add-on อ่านอย่างเดียว ===== */
+(function(){
+  var st=document.createElement("style");
+  st.textContent=
+    ".mkgrid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:14px}"+
+    "@media(max-width:1000px){.mkgrid{grid-template-columns:1fr}}"+
+    ".mkbig{font:800 34px/1 var(--mono);letter-spacing:-1px}"+
+    ".mkbig small{display:block;font:600 10px/1 var(--mono);color:var(--faint);letter-spacing:.14em;margin-bottom:7px}"+
+    ".mkstat{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}"+
+    ".mkstat div{flex:1;min-width:88px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}"+
+    ".mkstat small{display:block;color:var(--faint);font-size:9.5px;letter-spacing:.08em;margin-bottom:3px}"+
+    ".mkstat b{font:700 14px var(--mono)}"+
+    ".mkbar{height:9px;border-radius:99px;background:var(--track);position:relative;margin-top:9px}"+
+    ".mkbar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}"+
+    ".mkbar u{position:absolute;top:-4px;width:3px;height:17px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 2px var(--card);text-decoration:none}"+
+    ".mkends{display:flex;justify-content:space-between;color:var(--faint);font-size:10px;margin-top:5px}"+
+    ".mknote{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:12px;line-height:1.65}"+
+    ".mklbl{color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-top:14px}";
+  document.head.appendChild(st);
+
+  var g=document.createElement("div"); g.className="grid";
+  g.innerHTML='<div class="mkgrid">'
+    +'<div class="card"><h2>₿ BITCOIN · โซนเก็บของ <span class="chip" id="btChip">…</span></h2><div id="btBody" style="color:var(--dim);font-size:12px">กำลังโหลด…</div></div>'
+    +'<div class="card"><h2>💵 ดอลลาร์ (DXY) <span class="chip" id="dxChip">…</span></h2><div id="dxBody" style="color:var(--dim);font-size:12px">กำลังโหลด…</div></div>'
+    +'<div class="card"><h2>🥈 GOLD / SILVER <span class="chip" id="gsChip">…</span></h2><div id="gsBody" style="color:var(--dim);font-size:12px">กำลังโหลด…</div></div>'
+    +'</div>';
+  var anchor=null;
+  Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"),function(h){
+    if(!anchor && h.textContent.indexOf("พอร์ตจริง")===0) anchor=h.closest(".grid");
+  });
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g,anchor);
+  else document.querySelector(".wrap").appendChild(g);
+
+  var UP="#2fd18d", DN="#f0604a", GD="#e8b73f";
+  function f0(v){ return Math.round(v).toLocaleString("en-US"); }
+  function pc(v){ return (v>=0?"+":"−")+Math.abs(v).toFixed(1)+"%"; }
+  function spark(v,w,h,col){
+    var mn=Math.min.apply(null,v), mx=Math.max.apply(null,v), sp=(mx-mn)||1;
+    var X=function(i){return 3+i*(w-6)/((v.length-1)||1);};
+    var Y=function(q){return h-6-(q-mn)/sp*(h-12);};
+    var d=v.map(function(q,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(q).toFixed(1);}).join(" ");
+    return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="width:100%;height:'+h+'px;display:block">'
+      +'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linejoin="round"/>'
+      +'<circle cx="'+X(v.length-1).toFixed(1)+'" cy="'+Y(v[v.length-1]).toFixed(1)+'" r="3" fill="'+col+'"/></svg>';
+  }
+
+  var HALV=Date.UTC(2024,3,20), CYC=1460;
+  function btc(){
+    var P={}, done=0;
+    function fin(){
+      if(++done<3) return;
+      var b=document.getElementById("btBody"), c=document.getElementById("btChip");
+      if(!b) return;
+      var px=P.px, chg=P.chg, hist=P.hist, fg=P.fg;
+      if(!px||!hist){ b.textContent="ดึงข้อมูล BTC ไม่ได้"; return; }
+      var ath=Math.max.apply(null,hist), dd=(px/ath-1)*100;
+      var ma=hist.slice(-200).reduce(function(a,x){return a+x;},0)/Math.min(200,hist.length);
+      var vs=(px/ma-1)*100, below=px<ma;
+      var days=Math.floor((Date.now()-HALV)/86400000), cyp=Math.min(100,days/CYC*100);
+      var fgv=fg!=null?fg:null;
+      var fgCol=fgv==null?"var(--dim)":fgv<=25?UP:fgv>=75?DN:GD;
+      var note;
+      if(fgv!=null && fgv<=25 && below)
+        note="😱 <b>ตลาดกลัวสุดขีด</b> + ราคา<b>ต่ำกว่าเส้น 200 วัน</b> — ในอดีตสภาพแบบนี้คือช่วงที่ของถูก แต่ต้องพูดตรงๆ: มันเคยลากยาวหลายเดือนและ<b>ลงต่อได้อีก</b> · ตัวเลขพวกนี้บอก \"โซน\" ไม่ได้บอก \"จังหวะ\"";
+      else if(fgv!=null && fgv>=75)
+        note="🤑 <b>ตลาดโลภจัด</b> — ของไม่ถูกแล้ว ถ้าจะเข้า ระวังการไล่ราคา";
+      else
+        note=below?"ราคายัง<b>ต่ำกว่าเส้น 200 วัน</b> — โครงสร้างยังไม่กลับเป็นขาขึ้น":"ราคา<b>เหนือเส้น 200 วัน</b> — โครงสร้างกลับมาเป็นขาขึ้นแล้ว";
+      if(c) c.textContent="สด · CoinGecko";
+      b.innerHTML=
+        '<div class="mkbig"><small>BTC / USD</small>$'+f0(px)+' <span style="font-size:13px;color:'+(chg>=0?UP:DN)+'">'+pc(chg)+'</span></div>'
+        +'<div class="mkstat">'
+        +  '<div><small>จาก ATH 1 ปี</small><b style="color:'+(dd<0?DN:UP)+'">'+pc(dd)+'</b></div>'
+        +  '<div><small>เทียบเส้น 200 วัน</small><b style="color:'+(vs<0?DN:UP)+'">'+pc(vs)+'</b></div>'
+        +  '<div><small>FEAR &amp; GREED</small><b style="color:'+fgCol+'">'+(fgv==null?"—":fgv)+'</b></div>'
+        +'</div>'
+        +'<div class="mklbl">ความกลัว ↔ ความโลภ</div>'
+        +'<div class="mkbar"><i style="width:100%;background:linear-gradient(90deg,'+UP+','+GD+','+DN+');opacity:.32"></i>'+(fgv==null?"":'<u style="left:calc('+fgv+'% - 1.5px)"></u>')+'</div>'
+        +'<div class="mkends"><span>กลัวสุด (ของถูก)</span><span>โลภสุด (ของแพง)</span></div>'
+        +'<div class="mklbl">วงจร 4 ปี · วันที่ '+days.toLocaleString("en-US")+' หลัง halving</div>'
+        +'<div class="mkbar"><i style="width:'+cyp.toFixed(1)+'%;background:'+GD+';opacity:.5"></i><u style="left:calc('+cyp.toFixed(1)+'% - 1.5px)"></u></div>'
+        +'<div class="mkends"><span>halving เม.ย. 2024</span><span>halving ถัดไป ~2028</span></div>'
+        +'<div class="mklbl">ราคา 1 ปี</div>'+spark(hist,300,54,GD)
+        +'<div class="mknote">'+note+'<br><span style="color:var(--faint);font-size:11px">⚠️ ข้อมูลประกอบการตัดสินใจเท่านั้น · ไม่ใช่คำแนะนำการลงทุน · คริปโตผันผวนสูงมาก เสียเงินต้นทั้งหมดได้</span></div>';
+    }
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true")
+      .then(function(r){return r.json();}).then(function(j){ P.px=j.bitcoin.usd; P.chg=j.bitcoin.usd_24h_change; }).catch(function(){}).then(fin);
+    fetch("https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=365&interval=daily")
+      .then(function(r){return r.json();}).then(function(j){ P.hist=j.prices.map(function(x){return x[1];}); }).catch(function(){}).then(fin);
+    fetch("https://api.alternative.me/fng/?limit=1")
+      .then(function(r){return r.json();}).then(function(j){ P.fg=Number(j.data[0].value); }).catch(function(){}).then(fin);
+  }
+
+  function dxyOf(r){ return 50.14348112*Math.pow(1/r.EUR,-0.576)*Math.pow(r.JPY,0.136)*Math.pow(1/r.GBP,-0.119)*Math.pow(r.CAD,0.091)*Math.pow(r.SEK,0.042)*Math.pow(r.CHF,0.036); }
+  function dxy(){
+    fetch("https://api.frankfurter.dev/v1/2026-01-01..?base=USD&symbols=EUR,JPY,GBP,CAD,SEK,CHF")
+    .then(function(r){return r.json();}).then(function(j){
+      var b=document.getElementById("dxBody"), c=document.getElementById("dxChip");
+      if(!b) return;
+      var ks=Object.keys(j.rates).sort(), v=ks.map(function(k){return dxyOf(j.rates[k]);});
+      var now=v[v.length-1], m1=v[Math.max(0,v.length-22)], chg=(now/m1-1)*100;
+      var lo=Math.min.apply(null,v), hi=Math.max.apply(null,v), pos=(now-lo)/((hi-lo)||1)*100;
+      var strong=chg>0;
+      if(c) c.textContent="ECB · "+ks[ks.length-1];
+      b.innerHTML=
+        '<div class="mkbig"><small>DOLLAR INDEX</small>'+now.toFixed(2)+' <span style="font-size:13px;color:'+(strong?DN:UP)+'">'+pc(chg)+'</span></div>'
+        +'<div style="color:var(--dim);font-size:12px;margin-top:8px">เทียบ 1 เดือนก่อน</div>'
+        +'<div class="mklbl">ตำแหน่งในกรอบปีนี้</div>'
+        +'<div class="mkbar"><i style="width:100%;background:linear-gradient(90deg,'+UP+','+DN+');opacity:.3"></i><u style="left:calc('+pos.toFixed(1)+'% - 1.5px)"></u></div>'
+        +'<div class="mkends"><span>'+lo.toFixed(1)+' (ดอลลาร์อ่อน)</span><span>'+hi.toFixed(1)+' (แข็ง)</span></div>'
+        +'<div class="mklbl">DXY ปีนี้</div>'+spark(v,300,54,strong?DN:UP)
+        +'<div class="mknote">'+(strong
+            ? "🔴 ดอลลาร์<b>แข็งขึ้น</b>ในเดือนที่ผ่านมา → เป็น<b>ลมต้าน</b>ของทอง (ทองแพงขึ้นสำหรับคนถือสกุลอื่น)"
+            : "🟢 ดอลลาร์<b>อ่อนลง</b>ในเดือนที่ผ่านมา → เป็น<b>ลมส่ง</b>ของทอง")
+        +'<br><span style="color:var(--faint);font-size:11px">คำนวณสูตร DXY จากค่าเงินจริง 6 สกุล (ECB รายวัน) — ไม่ใช่ราคาเรียลไทม์ ใช้ดูทิศ ไม่ใช่ดูจังหวะ</span></div>';
+    }).catch(function(e){ var b=document.getElementById("dxBody"); if(b) b.textContent="ดึง DXY ไม่ได้"; });
+  }
+
+  function gsr(){
+    var A=null,B=null,d=0;
+    function fin(){
+      if(++d<2) return;
+      var b=document.getElementById("gsBody"), c=document.getElementById("gsChip");
+      if(!b) return;
+      if(!A||!B){ b.textContent="ดึงราคาโลหะไม่ได้"; return; }
+      var r=A/B, lo=50, hi=110, pos=Math.max(0,Math.min(100,(r-lo)/(hi-lo)*100));
+      var zone = r<60 ? ["โลหะร้อนแรง",UP] : r<75 ? ["ปกติ",GD] : r<90 ? ["เงินโดนทิ้ง / ระวังความเสี่ยง",DN] : ["กลัวสุดขีด",DN];
+      var note = r<60 ? "เงินวิ่งแรงกว่าทอง — มักเกิดตอน<b>ขาขึ้นของโลหะที่มีของจริงหนุน</b> (เงินเป็นโลหะอุตสาหกรรมด้วย)"
+        : r<75 ? "ratio อยู่ในกรอบปกติ — ทองกับเงินเดินไปด้วยกัน ไม่มีสัญญาณสุดโต่ง"
+        : "ratio สูง = <b>เงินอ่อนกว่าทองมาก</b> มักเกิดตอนตลาดกลัว/เศรษฐกิจชะลอ — คนวิ่งเข้าทองอย่างเดียว";
+      if(c) c.textContent="สด";
+      b.innerHTML=
+        '<div class="mkbig"><small>GOLD ÷ SILVER</small><span style="color:'+zone[1]+'">'+r.toFixed(1)+'</span></div>'
+        +'<div style="color:var(--dim);font-size:12px;margin-top:8px">ทอง $'+f0(A)+' · เงิน $'+B.toFixed(2)+'</div>'
+        +'<div class="mklbl">โซน · <b style="color:'+zone[1]+'">'+zone[0]+'</b></div>'
+        +'<div class="mkbar"><i style="width:100%;background:linear-gradient(90deg,'+UP+','+GD+','+DN+');opacity:.32"></i><u style="left:calc('+pos.toFixed(1)+'% - 1.5px)"></u></div>'
+        +'<div class="mkends"><span>50</span><span>80</span><span>110</span></div>'
+        +'<div class="mknote">'+note+'<br><span style="color:var(--faint);font-size:11px">ratio = ทอง 1 ออนซ์ ซื้อเงินได้กี่ออนซ์ · ค่าเฉลี่ยระยะยาว ~60–70</span></div>';
+    }
+    fetch("https://api.gold-api.com/price/XAU").then(function(r){return r.json();}).then(function(j){A=Number(j.price);}).catch(function(){}).then(fin);
+    fetch("https://api.gold-api.com/price/XAG").then(function(r){return r.json();}).then(function(j){B=Number(j.price);}).catch(function(){}).then(fin);
+  }
+
+  btc(); dxy(); gsr();
+  setInterval(btc, 5*60*1000);
+  setInterval(dxy, 30*60*1000);
+  setInterval(gsr, 60*1000);
+})();
+<\/script>
 </body>
 </html>
