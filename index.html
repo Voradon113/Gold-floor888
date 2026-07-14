@@ -257,7 +257,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 
   <div class="grid"><div class="card">
     <h2>กราฟ XAUUSD · โซนราคา (แปลง basis) <span class="chip" id="sdxBasis">basis —</span></h2>
-    <svg class="sdxchart" id="sdxChart" viewBox="0 0 700 320"></svg>
+    <svg class="sdxchart" id="sdxChart" viewBox="0 0 760 344"></svg>
     <div class="sdxnote" id="sdxNote">เส้นระดับจาก JANIE (GC) แปลงเป็น XAUUSD ด้วย basis · เส้นราคา = XAUUSD สดตั้งแต่เปิดหน้า</div>
   </div></div>
 
@@ -735,7 +735,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       if(Array.isArray(row)){ lbl=String(row[0]); price=n(row[1]); } else { price=n(row); lbl='SD'; }
       if(price!=null) levels.push([price+add, lbl, 'var(--accent2)', 'sd']);
     });
-    var W=700,H=320,padT=12,padB=14,xL=46,xR=W-8;
+    var W=760,H=344,padT=14,padB=30,xL=46,xR=W-58;
     var lo,hi;
     if(cd){                         // scale ตามแท่งเทียน (ราคาที่วิ่งจริง) + ดึงเฉพาะ level ที่อยู่ใกล้เข้ามา
       var cp=[]; cd.forEach(function(c){ var h=n(c[2]),l=n(c[3]); if(h!=null)cp.push(h); if(l!=null)cp.push(l); });
@@ -753,6 +753,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }
     var Y=function(p){ return padT+(1-(p-lo)/((hi-lo)||1))*(H-padT-padB); };
     var s='';
+    /* ---- แกน Y (ราคา) + เส้นกริด ---- */
+    var gN = 5;
+    for(var g=0; g<=gN; g++){
+      var pv = lo + (hi-lo)*g/gN, gy = Y(pv);
+      s+='<line x1="'+xL+'" y1="'+gy.toFixed(1)+'" x2="'+xR+'" y2="'+gy.toFixed(1)+'" stroke="var(--line)" stroke-width="0.6" opacity=".35"/>';
+      s+='<text x="'+(xR+6)+'" y="'+(gy+3.5).toFixed(1)+'" fill="var(--faint)" font-size="10" font-family="monospace">'+fmt(pv)+'</text>';
+    }
+    s+='<line x1="'+xR+'" y1="'+padT+'" x2="'+xR+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="0.8" opacity=".5"/>';
     // แท่งเทียนจริง (ถ้ามี) หรือ เส้นราคาสด (fallback)
     if(cd){
       var m=cd.length, cw=Math.max(1.5,(xR-xL)/m*0.62);
@@ -763,6 +771,17 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         s+='<line x1="'+x.toFixed(1)+'" y1="'+Y(h).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+Y(l).toFixed(1)+'" stroke="'+col+'" stroke-width="1"/>';
         var yo=Y(o),yc0=Y(cl),top=Math.min(yo,yc0),bh=Math.max(1,Math.abs(yo-yc0));
         s+='<rect x="'+(x-cw/2).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+col+'" opacity=".92"/>';
+      }
+      /* ---- แกน X (เวลาเซิร์ฟเวอร์โบรก) ---- */
+      s+='<line x1="'+xL+'" y1="'+(H-padB+3)+'" x2="'+xR+'" y2="'+(H-padB+3)+'" stroke="var(--line)" stroke-width="0.8" opacity=".5"/>';
+      var tN = 6;
+      for(var t=0; t<tN; t++){
+        var ix = Math.round(t*(cd.length-1)/(tN-1));
+        var tx = xL+(ix+0.5)*(xR-xL)/cd.length;
+        var ts = Number(cd[ix][0]);
+        if(!ts) continue;
+        var hhmm = new Date(ts*1000).toISOString().slice(11,16);
+        s+='<text x="'+tx.toFixed(1)+'" y="'+(H-9)+'" fill="var(--faint)" font-size="9.5" font-family="monospace" text-anchor="middle">'+hhmm+'</text>';
       }
     } else if(ticks.length>=2){
       var d=ticks.map(function(p,i){var xx=xL+(ticks.length<=1?(xR-xL):i*(xR-xL)/(ticks.length-1));return (i?'L':'M')+xx.toFixed(1)+' '+Y(p).toFixed(1);}).join(' ');
@@ -784,8 +803,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       s+='<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+l[2]+'" stroke-width="'+(sd?0.9:1.2)+'" stroke-dasharray="'+(sd?'2 3':'6 4')+'" opacity="'+(sd?0.55:0.9)+'"/>';
       lbl(l,y-4,'',false);
     });
-    ab.forEach(function(l,i){ lbl(l, padT+10+i*13, ' ↑', true); });
-    be.forEach(function(l,i){ lbl(l, H-padB-4-i*13, ' ↓', true); });
+    var hid = ab.length + be.length;
+    if(hid) s+='<text x="'+(xL+3)+'" y="'+(padT+1)+'" fill="var(--faint)" font-size="9" font-family="monospace" opacity=".75">🚫 ซ่อน '+hid+' ระดับที่อยู่นอกกรอบกราฟ (ไกลเกินกว่าจะถึง)</text>';
     // ราคาปัจจุบัน
     if(xau!=null){
       var yc=Y(xau);
