@@ -1757,6 +1757,18 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }catch(e){ return null; }
   }
 
+  /* ---- ยิงแจ้งเตือนเข้า Telegram ผ่าน JANIE A+ Alert (server เก็บ token) ---- */
+  var TGURL="https://script.google.com/macros/s/AKfycbxcWKuUNZk0D3eKvZY9fj5xQkhPTbXI70ohRc_X6gUF5fvnZ81fnrWUV7l99dOukJ6AiA/exec";
+  var tgLast=0;
+  function tgAlert(side,R,st){
+    if(!R||!R.ob||!R.sw) return;
+    var now=Date.now(); if(now-tgLast < 5*60*1000) return; tgLast=now;
+    var u=TGURL+"?mode=alert&wtok=AP-ALERT-2026&side="+side+"&st="+st
+      +"&lq="+R.sw.lv.toFixed(1)+"&ob1="+R.ob.lo.toFixed(1)+"&ob2="+R.ob.hi.toFixed(1)
+      +"&inv="+R.sw.ext.toFixed(1)+"&px="+R.px.toFixed(1);
+    fetch(u).catch(function(){});
+  }
+
   function tick(){
     var b=document.getElementById("apBody"); if(!b) return;
     var M=(typeof MP!=="undefined")?MP:null;
@@ -1791,7 +1803,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     else if(!R.inOB){ state="🟢 A+ พร้อม · รอย่อเข้าโซน"; sc=col; sub="เงื่อนไขครบ — <b>รอราคาย่อกลับเข้า OB</b> แล้วค่อยดูแท่งยืนยัน"; }
     else { state="🔥 A+ · ราคาอยู่ในโซน OB"; sc=col; sub="ราคาเข้าโซนแล้ว — <b>ต้องมีแท่งยืนยัน + ตั้ง SL ก่อนกด</b>"; }
 
-    if(state.indexOf("A+")>-1 && state!==lastState && sound) beep();
+    if(state.indexOf("A+")>-1 && state!==lastState){
+      if(sound) beep();
+      tgAlert(side, R, state.indexOf("☀")>-1 ? "in" : (R.inOB?"in":"ready"));
+    }
     lastState=state;
 
     b.innerHTML='<div class="apwrap"><div>'
