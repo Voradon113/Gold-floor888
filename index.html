@@ -1148,6 +1148,17 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       : "ยังคำนวณ 1SD ไม่ได้ (รอ EA ส่งแท่งเทียน) — ดูคอลัมน์ % ไปก่อน";
   }
   setInterval(tick,2000); tick();
+  /* กันแผนกระพริบ: ถ้าโค้ดหลัก repaint การ์ดแผน ให้เขียนทับกลับทันทีในเฟรมเดียวกัน */
+  (function(){
+    var pc=document.getElementById("planCards");
+    if(!pc || !window.MutationObserver) return;
+    var lock=false;
+    new MutationObserver(function(){
+      if(lock) return; lock=true;
+      try{ tick(); }catch(e){}
+      setTimeout(function(){ lock=false; },0);
+    }).observe(pc,{childList:true,subtree:true,characterData:true});
+  })();
 })();
 </script>
 <script>
