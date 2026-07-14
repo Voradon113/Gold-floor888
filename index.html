@@ -1084,47 +1084,46 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         "<span class=\"rgb "+cls+"\">"+lbl+"</span></div>";
     }).join("");
 
-    /* ---- แผนฉบับปรับระยะ: ถ้า BSL/SSL ของ JANIE ไกลเกิน 2SD ให้ใช้กำแพงใกล้สุดแทน ---- */
-    var fix = document.getElementById("rgFix");
-    if(!fix){
-      fix = document.createElement("div");
-      fix.id = "rgFix";
-      var footEl = document.getElementById("rgFoot");
-      footEl.parentNode.insertBefore(fix, footEl);
-    }
+    /* ---- ถ้าระดับของ JANIE ไกลเกิน 2 SD → เขียนทับ "แผนวันนี้" ด้วยระดับจริงจากกราฟ ---- */
+    var stf = structLevels(px);
     var farOf = function(v){ if(v==null) return false; return sd!=null ? (Math.abs(v-px)/sd > 2) : (Math.abs(v-px)/px > 0.025); };
     var bslFar = farOf(P.bsl), sslFar = farOf(P.ssl);
-    var stf = structLevels(px);
-    var nb = (bslFar && stf) ? Number(stf.hi) : null;
-    var ns = (sslFar && stf) ? Number(stf.lo) : null;
-    if((bslFar && nb) || (sslFar && ns)){
-      var B2 = nb!=null ? nb : P.bsl, S2 = ns!=null ? ns : P.ssl;
-      var side = (P.side||"").toUpperCase();
-      var rows = [];
-      if(side==="SHORT")
-        rows.push(["🎯","<b>เข้า:</b> ถ้ากวาดเหนือ <b>"+f0(B2)+"</b> แล้วกลับลง → SHORT"]);
-      else if(side==="LONG")
-        rows.push(["🎯","<b>เข้า:</b> ถ้ากวาดใต้ <b>"+f0(S2)+"</b> แล้วกลับขึ้น → LONG"]);
-      else
-        rows.push(["🎯","<b>กรอบเข้า:</b> สวนที่ <b>"+f0(S2)+"</b> (ล่าง) / <b>"+f0(B2)+"</b> (บน)"]);
-      rows.push(["⛔","<b>ยกเลิกเมื่อ:</b> ยืนเหนือ <b>"+f0(B2+10)+"</b> หรือหลุดใต้ <b>"+f0(S2-10)+"</b>"]);
-      var tg = [];
-      if(P.mean!=null) tg.push(f0(P.mean));
-      if(S2!=null && side==="SHORT") tg.push(f0(S2));
-      if(B2!=null && side==="LONG") tg.push(f0(B2));
-      if(tg.length) rows.push(["🏁","<b>เป้า:</b> "+tg.join(" → ")]);
-      var why = [];
-      if(bslFar && nb) why.push("BSL <s>"+f0(P.bsl)+"</s> → <b>"+f0(nb)+"</b> (แนวต้านจริงบนกราฟ)");
-      if(sslFar && ns) why.push("SSL <s>"+f0(P.ssl)+"</s> → <b>"+f0(ns)+"</b> (แนวรับจริงบนกราฟ)");
-      fix.className = "rgfix";
-      fix.innerHTML = "<h4>⚠️ แผนจาก JANIE ใช้ระดับที่ไกลเกิน 2 SD (กำแพง OI ค้าง) — นี่คือฉบับปรับระยะ จากแนวรับ-ต้านจริงบนกราฟ</h4>"+
-        rows.map(function(r){ return '<div class="fx"><span>'+r[0]+'</span><div>'+r[1]+'</div></div>'; }).join("")+
-        '<div class="fx"><span>🔁</span><div style="color:var(--faint);font-size:12px">'+why.join(" · ")+'</div></div>';
-    } else {
-      fix.className = "rgok";
-      fix.innerHTML = "✅ แผนจาก JANIE อยู่ในระยะที่เอื้อมถึงแล้ว (ทุกระดับ ≤ 2 SD)";
-    }
 
+    var fixEl = document.getElementById("rgFix");
+    if(fixEl) fixEl.remove();   /* ไม่ใช้กล่องซ้ำอีกแล้ว */
+
+    if(stf && (bslFar || sslFar)){
+      var side  = (P.side||"").toUpperCase();
+      var top   = Number(stf.hi), bot = Number(stf.lo);
+      var pSide = document.getElementById("planSide");
+      var pPh   = document.getElementById("planPhase");
+      var pCd   = document.getElementById("planCards");
+
+      if(pPh) pPh.innerHTML = "⚙️ ปรับระยะอัตโนมัติจากกราฟจริง · กรอบ <b>"+f0(bot)+"–"+f0(top)+"</b>"+
+        (bslFar && P.bsl ? " &nbsp;·&nbsp; <span style=\"color:var(--down)\">ทิ้ง BSL "+f0(P.bsl)+" (ไกลเกิน)</span>" : "");
+
+      if(pCd){
+        var cards = [];
+        if(side === "SHORT")
+          cards.push(["🎯","เข้าเมื่อ","ราคาแตะ/กวาดเหนือ <b>"+f0(top)+"</b> แล้วกลับลง → SHORT","short"]);
+        else if(side === "LONG")
+          cards.push(["🎯","เข้าเมื่อ","ราคาแตะ/กวาดใต้ <b>"+f0(bot)+"</b> แล้วกลับขึ้น → LONG","long"]);
+        else
+          cards.push(["🎯","เข้าเมื่อ","สวนขอบกรอบ: ล่าง <b>"+f0(bot)+"</b> / บน <b>"+f0(top)+"</b>","watch"]);
+
+        if(P.reason) cards.push(["🔁","เงื่อนไขสำรอง", P.reason, "watch"]);
+        cards.push(["⛔","ยกเลิกแผนเมื่อ","ยืนเหนือ <b>"+f0(top+10)+"</b> หรือหลุดใต้ <b>"+f0(bot-10)+"</b>","stop"]);
+        var tg = [];
+        if(P.mean!=null && !farOf(P.mean)) tg.push(f0(P.mean));
+        tg.push(side==="SHORT" ? f0(bot) : f0(top));
+        cards.push(["🏁","เป้า", tg.join(" → "), "watch"]);
+        if(P.discipline) cards.push(["🧊","วินัย", P.discipline, "watch"]);
+
+        pCd.innerHTML = cards.map(function(c){
+          return '<div class="pc '+c[3]+'"><span class="ic">'+c[0]+'</span><div><small>'+c[1]+'</small>'+c[2]+'</div></div>';
+        }).join("");
+      }
+    }
     var hideNote = hidden.length ? ("<br>🚫 ซ่อนระดับที่ไกลเกิน 2 SD: " + hidden.join(" · ") + " (ไกลเกินกว่าจะเกิดในวันเดียว)") : "";
     document.getElementById("rgFoot").innerHTML = hideNote + (sd!=null)
       ? ("1SD วันนี้ ≈ ±"+Math.round(sd)+" จุด (คำนวณจากความผันผวนจริงของแท่งเทียน MT5) · "+
