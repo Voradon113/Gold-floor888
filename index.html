@@ -1719,7 +1719,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 
     var px=Cl(n-1);
     var inOB = ob && px>=ob.lo && px<=ob.hi;
-    return {C:C,A:A,sh:sh,sl:sl,sw:best,rec:rec,disp:disp,ob:ob,px:px,inOB:inOB,state:"found"};
+    var buf=0.25*A;
+    var inval = best.dir<0 ? (Math.max((ob?ob.hi:best.ext), best.ext) + buf)
+                           : (Math.min((ob?ob.lo:best.ext), best.ext) - buf);
+    var badSL = best.dir<0 ? (inval <= px) : (inval >= px);
+    var entry1 = ob ? (ob.lo+ob.hi)/2 : px;
+    var risk1 = Math.abs(inval - entry1) || (0.5*A);
+    var tp1 = best.dir<0 ? (entry1 - 2*risk1) : (entry1 + 2*risk1);
+    return {C:C,A:A,sh:sh,sl:sl,sw:best,rec:rec,disp:disp,ob:ob,px:px,inOB:inOB,inv:inval,badSL:badSL,entry:entry1,tp:tp1,risk:risk1,state:"found"};
   }
 
   function mini(R,w,h){
@@ -1770,7 +1777,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var now=Date.now(); if(now-tgLast < 5*60*1000) return; tgLast=now;
     var u=TGURL+"?mode=alert&wtok=AP-ALERT-2026&side="+side+"&st="+st
       +"&lq="+R.sw.lv.toFixed(1)+"&ob1="+R.ob.lo.toFixed(1)+"&ob2="+R.ob.hi.toFixed(1)
-      +"&inv="+R.sw.ext.toFixed(1)+"&px="+R.px.toFixed(1);
+      +"&inv="+(R.inv!=null?R.inv:R.sw.ext).toFixed(1)
+      +"&entry="+(R.entry!=null?R.entry.toFixed(1):"")+"&tp="+(R.tp!=null?R.tp.toFixed(1):"")+"&px="+R.px.toFixed(1);
     fetch(u).catch(function(){});
   }
 
@@ -1808,7 +1816,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     else if(!R.inOB){ state="🟢 A+ พร้อม · รอย่อเข้าโซน"; sc=col; sub="เงื่อนไขครบ — <b>รอราคาย่อกลับเข้า OB</b> แล้วค่อยดูแท่งยืนยัน"; }
     else { state="🔥 A+ · ราคาอยู่ในโซน OB"; sc=col; sub="ราคาเข้าโซนแล้ว — <b>ต้องมีแท่งยืนยัน + ตั้ง SL ก่อนกด</b>"; }
 
-    if(state.indexOf("A+")>-1 && state!==lastState){
+    if(R.badSL){ state="⚠️ SL ผิดฝั่ง — ข้ามไม้นี้"; sc=DN; sub="OB คนละฝั่งกับจุดกวาด → SL จะไปโผล่กลางโซน · <b>ระบบไม่ส่งไม้นี้</b>"; }
+    if(!R.badSL && state.indexOf("A+")>-1 && state!==lastState){
       if(sound) beep();
       tgAlert(side, R, state.indexOf("☀")>-1 ? "in" : (R.inOB?"in":"ready"));
     }
@@ -1822,7 +1831,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       +mini(R,340,150)
       +'<div class="aplv">'
       +  '<div><small>โซน OB</small><b style="color:'+col+'">'+(R.ob?f2(R.ob.lo)+"–"+f2(R.ob.hi):"—")+'</b></div>'
-      +  '<div><small>ยกเลิกถ้าหลุด</small><b style="color:'+DN+'">'+f2(R.sw.ext)+'</b></div>'
+      +  '<div><small>เข้า (กลางโซน OB)</small><b>'+f2(R.entry)+'</b></div>'
+      +  '<div><small>เป้า TP (RR 1:2)</small><b style="color:'+UP+'">'+f2(R.tp)+'</b></div>'
+      +  '<div><small>ยกเลิกถ้าหลุด (SL)</small><b style="color:'+DN+'">'+f2(R.inv!=null?R.inv:R.sw.ext)+'</b></div>'
       +  '<div><small>ราคาตอนนี้</small><b>'+f2(R.px)+'</b></div>'
       +'</div>'
       +'<div class="apnote">⚠️ <b>ไม่ใช่สัญญาณเข้าอัตโนมัติ</b> — ต้องมีแท่งยืนยันในโซน + <b>ตั้ง SL ก่อนกด</b> (ไม้ที่ขาดทุนของพี่ทุกไม้ = ไม้ที่ไม่มี SL) · SMC ยังไม่มีหลักฐานสถิติรองรับ ให้สมุด 30-50 ไม้เป็นตัวตัดสิน</div>'
