@@ -1719,7 +1719,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 
     var px=Cl(n-1);
     var inOB = ob && px>=ob.lo && px<=ob.hi;
-    var buf=0.25*A;
+    var buf=0.6*A;
     var inval = best.dir<0 ? (Math.max((ob?ob.hi:best.ext), best.ext) + buf)
                            : (Math.min((ob?ob.lo:best.ext), best.ext) - buf);
     var badSL = best.dir<0 ? (inval <= px) : (inval >= px);
