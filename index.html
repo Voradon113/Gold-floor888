@@ -2271,13 +2271,17 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   poll(); setInterval(poll,2000);
 
   /* ---------- basis: spot(gold-api) -> GC ---------- */
-  var AUTO=null, LOCK=null, LOCKAT=0, DFX=null;
+  var LOCK=null, LOCKAT=0;
   function cardOff(){ var e=document.querySelector('.basisnum'); if(!e) return null;
     var v=parseFloat(e.innerText.replace(/[−–—]/g,'-').replace(/[^0-9.\-]/g,'')); return isFinite(v)?-v:null; }
-  function calcDfx(){ if(DFX!==null) return; var mb=null; try{ mb=MP&&MP.bid; }catch(e){} if(mb&&RT.px) DFX=RT.px-mb; }
-  function calcAuto(){ if(AUTO!==null) return; var o=cardOff(); if(o===null||DFX===null) return; AUTO=o-DFX; }
-  function basis(){ return LOCK!==null?LOCK:(AUTO!==null?AUTO:2.25); }
-  function m2g(x){ return x+(DFX||0)+basis(); }
+  function carryNow(){ var m=document.querySelector('.basismeta');
+    if(m){ var r=/carry\s*([+-]?[0-9]+(?:\.[0-9]+)?)/.exec(m.innerText.replace(/[−–—]/g,'-'));
+      if(r&&isFinite(parseFloat(r[1]))) return parseFloat(r[1]); }
+    return 1.40; }
+  function calcDfx(){}
+  function calcAuto(){}
+  function basis(){ return LOCK!==null?LOCK:carryNow(); }
+  function m2g(x){ var o=cardOff(); return x+(o===null?carryNow():o); }
 
   /* ---------- ตัวช่วย ---------- */
   function nf(x,d){ d=(d===undefined?1:d); return Number(x).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
@@ -2304,7 +2308,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(!RT.px){ document.getElementById('zBs').textContent='รอราคาสด…'; return; }
     LOCK=v-RT.px; LOCKAT=Date.now(); SIG=''; tick();
   };
-  document.getElementById('zAuto').onclick=function(){ LOCK=null; AUTO=null; calcAuto(); SIG=''; tick(); };
+  document.getElementById('zAuto').onclick=function(){ LOCK=null; SIG=''; tick(); };
 
   /* ---------- วาด ---------- */
   var SIG='', ROWS=[], PXEL=null, LASTP=null;
