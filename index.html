@@ -2084,12 +2084,16 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     +  '</div>'
     +  '<div>'
     +    '<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-bottom:4px">สถานะบัญชีวันนี้ (กรอกเอง)</div>'
+    +    '<div class="pgrow"><label>โหมด</label><select id="pgMode"><option value="C">Combine (สอบ)</option><option value="E">Express (ถอน)</option></select>'
+    +      '<label style="width:auto">ยอดตอนนี้</label><input id="pgBal" type="number" step="10" value="49260"></div>'
+    +    '<div class="pgrow"><label>MLL (พื้น)</label><input id="pgMLL" type="number" step="100" value="48000">'
+    +      '<label style="width:auto">เป้ากำไร</label><input id="pgTarget" type="number" step="100" value="3000"></div>'
     +    '<div class="pgrow"><label>DLL</label><input id="pgDLL" type="number" step="50" value="1000">'
     +      '<label style="width:auto">P/L วันนี้</label><input id="pgPL" type="number" step="10" value="0"></div>'
     +    '<div class="pgrow"><label>ไม้วันนี้</label><input id="pgN" type="number" step="1" value="0">'
     +      '<label style="width:auto">สูงสุด/วัน</label><input id="pgMaxN" type="number" step="1" value="3"></div>'
     +    '<div id="pgAcct"></div>'
-    +    '<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-top:14px">กฎ Consistency (เส้นทาง 40%)</div>'
+    +    '<div id="pgConsHead" style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-top:14px">กฎ Consistency</div>'
     +    '<div class="pgrow"><label>กำไรรวม</label><input id="pgTot" type="number" step="10" value="0">'
     +      '<label style="width:auto">วันดีสุด</label><input id="pgBest" type="number" step="10" value="0"></div>'
     +    '<div id="pgCons"></div>'
@@ -2125,15 +2129,23 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var dll=v("pgDLL")||1000, pl=v("pgPL")||0, n=v("pgN")||0, maxN=v("pgMaxN")||3;
 
     /* ---- ฝั่งบัญชี ---- */
-    var used=Math.max(0,-pl), room=Math.max(0, dll-used);
+    var mode=(document.getElementById('pgMode')||{value:'C'}).value;
+    var bal=v('pgBal')||0, mll=v('pgMLL')||0, target=v('pgTarget')||0;
+    var mllRoom=Math.max(0, bal-mll);
+    var usedD=Math.max(0,-pl), roomD=Math.max(0, dll-usedD);
+    var used=usedD, room=Math.min(roomD, mllRoom);   /* เพดานจริง = อันที่น้อยกว่า */
+
     var pct=Math.min(100, used/dll*100);
     var col = pct>=75?DN : pct>=50?GD : UP;
     document.getElementById("pgAcct").innerHTML=
       '<div class="pgstat">'
+      +'<div><small>☠️ ถึง MLL อีก</small><b style="color:'+(mllRoom<600?DN:(mllRoom<1200?GD:UP))+'">'+money(mllRoom)+'</b></div>'
       +'<div><small>P/L วันนี้</small><b style="color:'+(pl>=0?UP:DN)+'">'+money(pl)+'</b></div>'
-      +'<div><small>เหลือให้เสียได้</small><b style="color:'+col+'">'+money(room)+'</b></div>'
+      +'<div><small>เสียได้อีกวันนี้</small><b style="color:'+col+'">'+money(room)+'</b></div>'
       +'<div><small>ไม้</small><b style="color:'+(n>=maxN?DN:UP)+'">'+n+' / '+maxN+'</b></div>'
       +'</div>'
+      +(mode==='C' && target>0 ? ('<div class="pgbar" style="margin-top:9px"><i style="width:'+Math.min(100,Math.max(0,(bal-(mll+2000))/target*100)).toFixed(0)+'%;background:'+UP+'"></i></div>'
+        +'<div style="display:flex;justify-content:space-between;color:var(--faint);font-size:10px;margin-top:4px"><span>เป้า '+money(target)+' · เหลือ '+money(Math.max(0,(mll+2000+target)-bal))+'</span><span>ผ่านที่ '+money(mll+2000+target)+'</span></div>') : '')
       +'<div class="pgbar"><i style="width:'+pct.toFixed(0)+'%;background:'+col+'"></i></div>'
       +'<div style="display:flex;justify-content:space-between;color:var(--faint);font-size:10px;margin-top:4px"><span>ใช้ DLL ไป '+pct.toFixed(0)+'%</span><span>เพดาน '+money(dll)+'</span></div>';
 
@@ -2141,10 +2153,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var tot=v("pgTot")||0, best=v("pgBest")||0;
     var cEl=document.getElementById("pgCons");
     if(tot>0 && best>0){
-      var r=best/tot*100, ok=r<=40;
-      var need=Math.max(0, best/0.40 - tot);
+      var lim=(mode==='C')?50:40;
+      var r=best/tot*100, ok=r<=lim;
+      var need=Math.max(0, best/(lim/100) - tot);
+      var ch=document.getElementById('pgConsHead'); if(ch) ch.textContent='กฎ Consistency ('+(mode==='C'?'Combine 50%':'เส้นทางถอน 40%')+')';
       cEl.innerHTML='<div class="pgstat"><div><small>วันดีสุด / รวม</small><b style="color:'+(ok?UP:DN)+'">'+r.toFixed(0)+'%</b></div>'
-        +'<div><small>เกณฑ์</small><b>≤ 40%</b></div>'
+        +'<div><small>เกณฑ์</small><b>≤ '+lim+'%</b></div>'
         +'<div><small>'+(ok?"ผ่านแล้ว":"ต้องทำอีก")+'</small><b style="color:'+(ok?UP:GD)+'">'+(ok?"✓":money(need))+'</b></div></div>';
     } else cEl.innerHTML='<div class="pgnote" style="margin-top:6px">กรอกกำไรรวม + วันที่ดีสุด → คำนวณกฎ 40% ให้</div>';
 
@@ -2168,7 +2182,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       ["TP ≥ 4× ต้นทุน", costRatio>=4, costRatio.toFixed(1)+"×"],
       ["มีระดับอ้างอิง", lvOk, lvOk?"✓":"✗"],
       ["ไม้ยังไม่เกินโควตา", n<maxN, n+"/"+maxN],
-      ["เสี่ยงไม่เกิน DLL ที่เหลือ", risk<=room, money(risk)+" / "+money(room)]
+      ["เสี่ยงไม่เกินเพดานวันนี้", risk<=room, money(risk)+" / "+money(room)],
+      ["เสี่ยง < 25% ของ MLL ที่เหลือ", (mllRoom<=0? false : risk <= mllRoom*0.25), (mllRoom>0? (risk/mllRoom*100).toFixed(0)+"%" : "MLL หมด")]
     ];
     var pass = chk.every(function(c){return c[1];});
     var fails = chk.filter(function(c){return !c[1];}).length;
@@ -2190,13 +2205,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(sym==="MGC" && qty>=3) tips.push("💡 ใช้ MGC "+qty+" สัญญา = ค่าธรรมเนียม "+money(cost)+" · GC 1 สัญญาเสียแค่ $4.32 (ขนาดใกล้เคียง 10 ไมโคร)");
     if(risk>room && room>0) tips.push("ลดเหลือ "+Math.max(0,Math.floor(room/(slT*S.tv)))+" สัญญา ถึงจะไม่เกิน DLL ที่เหลือ");
     if(pct>=50) tips.push("⚠️ ใช้ DLL ไปเกินครึ่งแล้ว — วันนี้ควรหยุด");
+    if(mllRoom>0 && mllRoom<1200) tips.push("☠️ เหลือถึง MLL แค่ "+money(mllRoom)+" — บัญชีตายถ้าถึง · ลดไซซ์ครึ่งนึง");
+    if(mode==='C') tips.push("Combine: DLL = ล็อกจอวันนั้น (ไม่ตาย) · MLL = ตายจริง · Consistency 50%");
 
     document.getElementById("pgNote").innerHTML='<div class="pgnote">'
       +(tips.length? tips.map(function(t){return "• "+t;}).join("<br>") : "ทุกข้อผ่าน — เข้าได้ตามแผน")
       +'<br><span style="color:var(--faint);font-size:11px">ค่าธรรมเนียม Topstep ไป-กลับ/สัญญา: MGC $1.92 · GC $4.32 · MNQ $1.22 · NQ $3.78 (อัปเดต 20 ก.ค. 2026) · ค่าที่กรอกจะหายเมื่อรีเฟรช · ⚠️ ไม่ใช่คำแนะนำการลงทุน</span></div>';
   }
 
-  ["pgSym","pgQty","pgEntry","pgSL","pgTP","pgLv","pgDLL","pgPL","pgN","pgMaxN","pgTot","pgBest"].forEach(function(id){
+  ["pgSym","pgQty","pgEntry","pgSL","pgTP","pgLv","pgDLL","pgPL","pgN","pgMaxN","pgTot","pgBest","pgMode","pgBal","pgMLL","pgTarget"].forEach(function(id){
     var e=document.getElementById(id); if(e){ e.addEventListener("input",calc); e.addEventListener("change",calc); }
   });
   calc();
