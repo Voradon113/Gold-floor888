@@ -2494,9 +2494,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
    +'<div class="dsync"><span class="dstt" id="dSt">⚪ ยังไม่ได้ต่อ sync</span>'
    +'<input id="dUrl" placeholder="วาง Web app URL แล้วต่อท้ายด้วย ?t=TOKEN ของคุณ">'
    +'<button class="dbtn sm" id="dSave">ต่อ</button>'
-   +'<button class="dbtn sm" id="dPull">ดึงใหม่</button></div>'
+   +'<button class="dbtn sm" id="dPull">ดึงใหม่</button><button class="dbtn sm" id="dLink">ลิงก์มือถือ</button></div>'
    +'<div id="dBody"></div></div>';
   anchor.parentElement.insertBefore(g,anchor);
+  (function(){
+    var m=/[#&]disc=([^&]+)/.exec(location.hash||'');
+    if(!m) return;
+    try{ var u=decodeURIComponent(m[1]); if(u.indexOf('https://')===0) surl(u); }catch(e){}
+    try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  })();
   var ui=document.getElementById('dUrl'); if(ui) ui.value=gurl();
 
   /* ---------- sync ---------- */
@@ -2544,6 +2550,21 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     surl(v); if(!v){ SY.s='off'; stat(); return; } pull();
   };
   document.getElementById('dPull').onclick=pull;
+  document.getElementById('dLink').onclick=function(){
+    var u=gurl(), e=document.getElementById('dSt');
+    if(!u){ e.textContent='⚪ ต่อ sync ก่อน แล้วค่อยสร้างลิงก์'; return; }
+    var link=location.origin+location.pathname+'#disc='+encodeURIComponent(u);
+    var ta=document.createElement('textarea');
+    ta.value=link; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    var okc=false; try{ okc=document.execCommand('copy'); }catch(x){}
+    document.body.removeChild(ta);
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(link)
+        .then(function(){ e.textContent='📋 คัดลอกลิงก์แล้ว — ส่งหาตัวเองแล้วเปิดในมือถือ (อย่าส่งให้คนอื่น)'; })
+        .catch(function(){ e.textContent=okc?'📋 คัดลอกแล้ว — ส่งหาตัวเองเท่านั้น':'❌ คัดลอกไม่ได้'; });
+    } else e.textContent=okc?'📋 คัดลอกแล้ว — ส่งหาตัวเองเท่านั้น':'❌ คัดลอกไม่ได้';
+  };
 
   function draw(){
     var box=document.getElementById('dBody'); if(!box) return;
