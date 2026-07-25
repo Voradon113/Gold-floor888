@@ -2437,5 +2437,145 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   tick(); setInterval(tick,1000);
 })();
 </script>
-</body>
+<script>
+/* ===== การ์ด "3 ไม้/วัน · รางไหน" · ตัวนับวินัย ===== */
+(function(){
+  var KEY='tanu_disc_v1', MAXT=3;
+  var CSS='.dcard{border:1px solid rgba(255,200,80,.28)}'
+  +'.dtop{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px}'
+  +'.ddots{display:flex;gap:12px}'
+  +'.ddot{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;'
+  +'font:900 24px var(--mono);border:2px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--faint);transition:.25s}'
+  +'.ddot.on{background:linear-gradient(180deg,#26a69a,#1d8377);border-color:#4fd6c8;color:#fff;box-shadow:0 0 22px rgba(38,166,154,.35)}'
+  +'.ddot.over{background:linear-gradient(180deg,#ef5350,#b8322f);border-color:#ff8a87;color:#fff;box-shadow:0 0 22px rgba(239,83,80,.4)}'
+  +'.dact{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}'
+  +'.dbtn{padding:12px 22px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--ink);'
+  +'font:800 14px var(--mono);cursor:pointer;transition:.2s}'
+  +'.dbtn.main{background:linear-gradient(180deg,#2f7d74,#1d5f58);border-color:#4fd6c8;color:#fff;font-size:16px;padding:14px 26px}'
+  +'.dbtn.main:hover{filter:brightness(1.15)}'
+  +'.dbtn.stop{background:linear-gradient(180deg,#8a3b39,#5e2726);border-color:#ef5350;color:#ffdada}'
+  +'.dbtn.sm{padding:9px 14px;font-size:12px;color:var(--dim)}'
+  +'.dbtn:hover{border-color:var(--accent)}'
+  +'.dstate{padding:13px 16px;border-radius:12px;font:800 14px/1.6 var(--mono);margin-bottom:14px}'
+  +'.dstate.ok{background:rgba(38,166,154,.13);color:#7fe3d7;border:1px solid rgba(38,166,154,.35)}'
+  +'.dstate.done{background:rgba(255,200,80,.14);color:#ffd98a;border:1px solid rgba(255,200,80,.4)}'
+  +'.dstate.bad{background:rgba(239,83,80,.15);color:#ff9b98;border:1px solid rgba(239,83,80,.45)}'
+  +'.dstate small{display:block;font:600 11px var(--mono);opacity:.8;margin-top:4px}'
+  +'.dstrip{display:flex;gap:3px;flex-wrap:wrap;margin:10px 0 12px}'
+  +'.dblk{width:16px;height:26px;border-radius:4px;background:rgba(255,255,255,.07)}'
+  +'.dblk.g{background:#26a69a}.dblk.r{background:#ef5350}.dblk.t{background:rgba(255,255,255,.16)}'
+  +'.dstats{display:flex;gap:9px;flex-wrap:wrap}'
+  +'.dst{padding:9px 13px;border-radius:11px;background:rgba(255,255,255,.05);min-width:96px}'
+  +'.dst small{display:block;font:700 10px var(--mono);color:var(--faint);margin-bottom:3px}'
+  +'.dst b{font:900 19px var(--mono);color:var(--ink)}'
+  +'.dnote{margin-top:13px;padding:11px 14px;border-radius:11px;background:rgba(255,255,255,.04);'
+  +'font:600 12px/1.8 var(--mono);color:var(--dim)}'
+  +'.dnote b{color:var(--ink)}.dnote .bad{color:#ef5350}'
+  +'@media(max-width:640px){.ddot{width:52px;height:52px;font-size:20px}.dact{margin-left:0;width:100%}.dbtn.main{flex:1}}';
+  var st=document.createElement('style'); st.textContent=CSS; document.head.appendChild(st);
+
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } }
+  function save(o){ try{ localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
+  function p2(n){ return (n<10?'0':'')+n; }
+  function dkey(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+  function today(){ return dkey(new Date()); }
+
+  var host=document.querySelector('.zcard');
+  var anchor = host ? host.closest('.grid') : null;
+  if(!anchor){ var sb=document.getElementById('sdBody'); if(sb) anchor=sb.closest('.card').parentElement; }
+  if(!anchor||!anchor.parentElement) return;
+  var g=document.createElement('div'); g.className='grid';
+  g.innerHTML='<div class="card dcard"><h2>🚦 3 ไม้/วัน · วันนี้อยู่รางไหน <span class="chip" id="dChip">—</span></h2>'
+   +'<div id="dBody"></div></div>';
+  anchor.parentElement.insertBefore(g,anchor);
+
+  function bump(n){
+    var db=load(), t=today();
+    db[t]=Math.max(0,(db[t]||0)+n);
+    if(db[t]===0 && n<0) delete db[t];
+    save(db); draw();
+  }
+  function resetDay(){ var db=load(); delete db[today()]; save(db); draw(); }
+
+  function draw(){
+    var box=document.getElementById('dBody'); if(!box) return;
+    var db=load(), t=today(), n=db[t]||0;
+
+    /* --- จุด --- */
+    var dots='';
+    for(var i=1;i<=MAXT;i++) dots+='<div class="ddot'+(n>=i?' on':'')+'">'+i+'</div>';
+    if(n>MAXT) dots+='<div class="ddot over">+'+(n-MAXT)+'</div>';
+
+    /* --- สถานะ --- */
+    var s;
+    if(n===0) s='<div class="dstate ok">⚪ ยังไม่เข้าไม้วันนี้ — รอโซนอย่างเดียว<small>80% ของเวลาที่ดีคือการไม่ทำอะไร</small></div>';
+    else if(n<MAXT) s='<div class="dstate ok">✅ อยู่ในกติกา — เหลืออีก '+(MAXT-n)+' ไม้<small>ยิงให้ตรงโซน ไม่ต้องรีบใช้ให้ครบ</small></div>';
+    else if(n===MAXT) s='<div class="dstate done">🛑 ครบ 3 ไม้แล้ว — <b>ปิดจอ</b> พรุ่งนี้ค่อยว่ากัน<small>วันนี้จบแล้ว ไม่ว่ากำไรหรือขาดทุน</small></div>';
+    else s='<div class="dstate bad">⚠️ ไม้ที่ '+n+' — <b>นี่คือรางวนอ่าง</b><small>วันที่แย่สุดของคุณคือ 107 ไม้ = −$423 · ไล่ราคา 140 ไม้ = −$929</small></div>';
+
+    /* --- แถบ 30 วัน --- */
+    var strip='', ok=0, bad=0, traded=0, tot=0;
+    for(var k=29;k>=0;k--){
+      var d=new Date(); d.setDate(d.getDate()-k);
+      var v=db[dkey(d)];
+      var cls='';
+      if(v===undefined) cls='';
+      else if(v>MAXT){ cls='r'; bad++; traded++; tot+=v; }
+      else if(v>0){ cls='g'; ok++; traded++; tot+=v; }
+      if(dkey(d)===t && v===undefined) cls='t';
+      strip+='<div class="dblk '+cls+'" title="'+dkey(d)+(v!==undefined?' · '+v+' ไม้':'')+'"></div>';
+    }
+
+    /* --- สตรีค (นับย้อนเฉพาะวันที่เทรด) --- */
+    var streak=0;
+    for(var k2=0;k2<180;k2++){
+      var d2=new Date(); d2.setDate(d2.getDate()-k2);
+      var v2=db[dkey(d2)];
+      if(v2===undefined) continue;
+      if(v2<=MAXT) streak++; else break;
+    }
+    var avg = traded? (tot/traded) : 0;
+    var pct = traded? Math.round(ok/traded*100) : 0;
+
+    var H = s
+      +'<div class="dtop"><div class="ddots">'+dots+'</div>'
+      +'<div class="dact">'
+      +(n>=MAXT
+        ? '<button class="dbtn main stop" id="dAdd">เข้าไม้เกินกติกา</button>'
+        : '<button class="dbtn main" id="dAdd">+ เข้าไม้แล้ว</button>')
+      +'<button class="dbtn sm" id="dSub">−1</button>'
+      +'<button class="dbtn sm" id="dRst">รีเซ็ตวันนี้</button></div></div>'
+      +'<div style="font:700 11px var(--mono);color:var(--faint)">30 วันล่าสุด · <span style="color:#26a69a">เขียว = ตรงกติกา</span> · <span style="color:#ef5350">แดง = เกิน 3 ไม้</span> · เทา = ไม่ได้เทรด</div>'
+      +'<div class="dstrip">'+strip+'</div>'
+      +'<div class="dstats">'
+      +'<div class="dst"><small>วันที่เทรด</small><b>'+traded+'</b></div>'
+      +'<div class="dst"><small>ตรงกติกา</small><b style="color:#4fd6c8">'+ok+'</b></div>'
+      +'<div class="dst"><small>หลุดกติกา</small><b style="color:#ff8a87">'+bad+'</b></div>'
+      +'<div class="dst"><small>สตรีค</small><b>'+streak+'</b></div>'
+      +'<div class="dst"><small>เฉลี่ย/วัน</small><b>'+(traded?avg.toFixed(1):'—')+'</b></div>'
+      +'<div class="dst"><small>วินัย</small><b>'+(traded?pct+'%':'—')+'</b></div></div>';
+
+    /* --- ราง --- */
+    var track;
+    if(!traded) track='<b>ยังไม่มีข้อมูล</b> — กดปุ่มทุกครั้งที่เข้าไม้ แล้วอีก 2 สัปดาห์จะเห็นรางชัด';
+    else if(avg<=MAXT && pct>=80) track='✅ <b>ราง "ค่อยๆ ขยับ"</b> — เฉลี่ย '+avg.toFixed(1)+' ไม้/วัน (เดิม 10 ไม้/วัน)';
+    else if(avg<=5) track='🟡 <b>ก้ำกึ่ง</b> — เฉลี่ย '+avg.toFixed(1)+' ไม้/วัน · ยังหลุดอยู่ '+bad+' วัน';
+    else track='🔴 <b>ราง "วนในอ่าง"</b> — เฉลี่ย '+avg.toFixed(1)+' ไม้/วัน · นี่คือรางเดิมที่ทำให้ 30 วันติดลบ';
+
+    H+='<div class="dnote">'+track+'<br>'
+      +'<span class="bad">ตัวเลขเดียวที่แยกสองอนาคต คือจำนวนไม้ ไม่ใช่ระบบ</span><br>'
+      +'<span style="color:var(--faint)">💾 เก็บในเครื่องนี้เท่านั้น (ไม่ sync มือถือ ↔ VPS) · ล้างแคชแล้วหาย</span></div>';
+
+    box.innerHTML=H;
+    document.getElementById('dAdd').onclick=function(){ bump(1); };
+    document.getElementById('dSub').onclick=function(){ bump(-1); };
+    document.getElementById('dRst').onclick=function(){ resetDay(); };
+    var ch=document.getElementById('dChip');
+    if(ch) ch.textContent='วันนี้ '+n+'/'+MAXT+(n>MAXT?' ⚠️':'');
+  }
+  draw();
+  var lastDay=today();
+  setInterval(function(){ if(today()!==lastDay){ lastDay=today(); draw(); } },30000);
+})();
+</script></body>
 </html>
