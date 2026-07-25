@@ -2043,5 +2043,164 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   setInterval(tick,30000); setTimeout(tick,1500); tick();
 })();
 </script>
+<script>
+/* ===== PROP GATE · ประตูก่อนเข้าไม้ + คุมกฎ Topstep (add-on อ่านอย่างเดียว) ===== */
+(function(){
+  var st=document.createElement("style");
+  st.textContent=
+    ".pgwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}"+
+    "@media(max-width:980px){.pgwrap{grid-template-columns:1fr}}"+
+    ".pgrow{display:flex;gap:8px;align-items:center;margin:7px 0;flex-wrap:wrap}"+
+    ".pgrow label{color:var(--faint);font-size:11px;width:96px;flex:none;text-align:right}"+
+    ".pgrow input,.pgrow select{background:var(--card2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 9px;font:700 12px var(--mono);width:92px}"+
+    ".pgrow select{width:112px}"+
+    ".pgverdict{font:800 26px/1.15 var(--mono);letter-spacing:-.5px;padding:14px;border-radius:12px;text-align:center;margin-top:6px}"+
+    ".pgchk{margin-top:10px}"+
+    ".pgchk div{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--line)}"+
+    ".pgchk div:last-child{border-bottom:0}"+
+    ".pgchk b{margin-left:auto;font:700 11px var(--mono)}"+
+    ".pgbar{height:11px;border-radius:99px;background:var(--track);position:relative;margin-top:7px;overflow:hidden}"+
+    ".pgbar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}"+
+    ".pgstat{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}"+
+    ".pgstat div{flex:1;min-width:90px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}"+
+    ".pgstat small{display:block;color:var(--faint);font-size:9.5px;letter-spacing:.07em;margin-bottom:3px}"+
+    ".pgstat b{font:700 14px var(--mono)}"+
+    ".pgnote{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:12px;line-height:1.65;color:var(--dim)}";
+  document.head.appendChild(st);
+
+  var g=document.createElement("div"); g.className="grid";
+  g.innerHTML='<div class="card"><h2>🚦 PROP GATE · ประตูก่อนกด <span class="chip">Topstep · ฟิวเจอร์ส</span></h2>'
+    +'<div class="pgwrap">'
+    +  '<div>'
+    +    '<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-bottom:4px">ไม้ที่กำลังจะเข้า</div>'
+    +    '<div class="pgrow"><label>สินค้า</label><select id="pgSym"><option value="MGC">MGC ไมโครทอง</option><option value="GC">GC ทองเต็ม</option><option value="MNQ">MNQ</option><option value="NQ">NQ</option></select>'
+    +      '<label style="width:auto">จำนวน</label><input id="pgQty" type="number" step="1" value="1"></div>'
+    +    '<div class="pgrow"><label>ราคาเข้า</label><input id="pgEntry" type="number" step="0.1" placeholder="4055.0"></div>'
+    +    '<div class="pgrow"><label>SL</label><input id="pgSL" type="number" step="0.1" placeholder="4051.0"></div>'
+    +    '<div class="pgrow"><label>TP</label><input id="pgTP" type="number" step="0.1" placeholder="4063.0"></div>'
+    +    '<div class="pgrow"><label>อิงระดับ?</label><select id="pgLv"><option value="0">✗ ไม่มีระดับ (ไล่ราคา)</option><option value="1">✓ กำแพง OI</option><option value="1">✓ โซน OB / A+</option><option value="1">✓ ขอบ SD</option><option value="1">✓ swing เดิม</option></select></div>'
+    +    '<div id="pgVerdict" class="pgverdict" style="background:var(--card2);color:var(--dim)">กรอกราคาก่อน</div>'
+    +    '<div class="pgchk" id="pgChk"></div>'
+    +  '</div>'
+    +  '<div>'
+    +    '<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-bottom:4px">สถานะบัญชีวันนี้ (กรอกเอง)</div>'
+    +    '<div class="pgrow"><label>DLL</label><input id="pgDLL" type="number" step="50" value="1000">'
+    +      '<label style="width:auto">P/L วันนี้</label><input id="pgPL" type="number" step="10" value="0"></div>'
+    +    '<div class="pgrow"><label>ไม้วันนี้</label><input id="pgN" type="number" step="1" value="0">'
+    +      '<label style="width:auto">สูงสุด/วัน</label><input id="pgMaxN" type="number" step="1" value="3"></div>'
+    +    '<div id="pgAcct"></div>'
+    +    '<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-top:14px">กฎ Consistency (เส้นทาง 40%)</div>'
+    +    '<div class="pgrow"><label>กำไรรวม</label><input id="pgTot" type="number" step="10" value="0">'
+    +      '<label style="width:auto">วันดีสุด</label><input id="pgBest" type="number" step="10" value="0"></div>'
+    +    '<div id="pgCons"></div>'
+    +  '</div>'
+    +'</div><div id="pgNote"></div></div>';
+
+  var anchor=null;
+  Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"),function(h){
+    if(!anchor && h.textContent.indexOf("A+ SETUP")>-1) anchor=h.closest(".grid");
+  });
+  if(!anchor) Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"),function(h){
+    if(!anchor && h.textContent.indexOf("พอร์ตจริง")===0) anchor=h.closest(".grid");
+  });
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g,anchor); else document.querySelector(".wrap").appendChild(g);
+
+  var UP="#2fd18d", DN="#f0604a", GD="#e8b73f";
+  /* tickSize(จุดราคา), tickValue($), ค่าธรรมเนียมไป-กลับ($) — Topstep 20 ก.ค. 2026 */
+  var SPEC={
+    MGC:{ts:0.1, tv:1.00, rt:1.92, name:"ไมโครทอง"},
+    GC :{ts:0.1, tv:10.00,rt:4.32, name:"ทองเต็ม"},
+    MNQ:{ts:0.25,tv:0.50, rt:1.22, name:"ไมโคร NQ"},
+    NQ :{ts:0.25,tv:5.00, rt:3.78, name:"NQ"}
+  };
+  function v(id){ var e=document.getElementById(id); return e?parseFloat(e.value):NaN; }
+  function money(x){ return (x<0?"−$":"$")+Math.abs(x).toFixed(2); }
+
+  function calc(){
+    var sym=document.getElementById("pgSym").value;
+    var S=SPEC[sym]||SPEC.MGC;
+    var qty=Math.max(1, v("pgQty")||1);
+    var en=v("pgEntry"), sl=v("pgSL"), tp=v("pgTP");
+    var lvOk=document.getElementById("pgLv").value==="1";
+    var dll=v("pgDLL")||1000, pl=v("pgPL")||0, n=v("pgN")||0, maxN=v("pgMaxN")||3;
+
+    /* ---- ฝั่งบัญชี ---- */
+    var used=Math.max(0,-pl), room=Math.max(0, dll-used);
+    var pct=Math.min(100, used/dll*100);
+    var col = pct>=75?DN : pct>=50?GD : UP;
+    document.getElementById("pgAcct").innerHTML=
+      '<div class="pgstat">'
+      +'<div><small>P/L วันนี้</small><b style="color:'+(pl>=0?UP:DN)+'">'+money(pl)+'</b></div>'
+      +'<div><small>เหลือให้เสียได้</small><b style="color:'+col+'">'+money(room)+'</b></div>'
+      +'<div><small>ไม้</small><b style="color:'+(n>=maxN?DN:UP)+'">'+n+' / '+maxN+'</b></div>'
+      +'</div>'
+      +'<div class="pgbar"><i style="width:'+pct.toFixed(0)+'%;background:'+col+'"></i></div>'
+      +'<div style="display:flex;justify-content:space-between;color:var(--faint);font-size:10px;margin-top:4px"><span>ใช้ DLL ไป '+pct.toFixed(0)+'%</span><span>เพดาน '+money(dll)+'</span></div>';
+
+    /* ---- กฎ consistency 40% ---- */
+    var tot=v("pgTot")||0, best=v("pgBest")||0;
+    var cEl=document.getElementById("pgCons");
+    if(tot>0 && best>0){
+      var r=best/tot*100, ok=r<=40;
+      var need=Math.max(0, best/0.40 - tot);
+      cEl.innerHTML='<div class="pgstat"><div><small>วันดีสุด / รวม</small><b style="color:'+(ok?UP:DN)+'">'+r.toFixed(0)+'%</b></div>'
+        +'<div><small>เกณฑ์</small><b>≤ 40%</b></div>'
+        +'<div><small>'+(ok?"ผ่านแล้ว":"ต้องทำอีก")+'</small><b style="color:'+(ok?UP:GD)+'">'+(ok?"✓":money(need))+'</b></div></div>';
+    } else cEl.innerHTML='<div class="pgnote" style="margin-top:6px">กรอกกำไรรวม + วันที่ดีสุด → คำนวณกฎ 40% ให้</div>';
+
+    /* ---- ฝั่งไม้ ---- */
+    var vEl=document.getElementById("pgVerdict"), kEl=document.getElementById("pgChk");
+    if(!isFinite(en)||!isFinite(sl)||!isFinite(tp)||en<=0){
+      vEl.style.background="var(--card2)"; vEl.style.color="var(--dim)";
+      vEl.textContent="กรอกราคาก่อน"; kEl.innerHTML=""; return;
+    }
+    var dir = (tp>en) ? 1 : -1;
+    var slT = Math.abs(en-sl)/S.ts, tpT = Math.abs(tp-en)/S.ts;
+    var risk = slT*S.tv*qty, reward = tpT*S.tv*qty;
+    var cost = S.rt*qty;
+    var rr = (risk>0) ? reward/risk : 0;
+    var costRatio = (cost>0) ? reward/cost : 0;
+    var slSide = (dir>0) ? (sl<en) : (sl>en);
+
+    var chk=[
+      ["SL ถูกฝั่ง", slSide, slSide?"ok":"⚠ ผิดฝั่ง"],
+      ["RR ≥ 1.5", rr>=1.5, rr.toFixed(2)],
+      ["TP ≥ 4× ต้นทุน", costRatio>=4, costRatio.toFixed(1)+"×"],
+      ["มีระดับอ้างอิง", lvOk, lvOk?"✓":"✗"],
+      ["ไม้ยังไม่เกินโควตา", n<maxN, n+"/"+maxN],
+      ["เสี่ยงไม่เกิน DLL ที่เหลือ", risk<=room, money(risk)+" / "+money(room)]
+    ];
+    var pass = chk.every(function(c){return c[1];});
+    var fails = chk.filter(function(c){return !c[1];}).length;
+
+    kEl.innerHTML=chk.map(function(c){
+      return '<div><span>'+(c[1]?"✅":"⛔")+'</span><span style="color:'+(c[1]?"var(--ink)":DN)+'">'+c[0]+'</span><b style="color:'+(c[1]?"var(--faint)":DN)+'">'+c[2]+'</b></div>';
+    }).join("");
+
+    vEl.style.background = pass ? "rgba(47,209,141,.14)" : "rgba(240,96,74,.14)";
+    vEl.style.color = pass ? UP : DN;
+    vEl.innerHTML = pass
+      ? "🟢 GO<div style='font:600 12px var(--mono);margin-top:6px;color:var(--dim)'>เสี่ยง "+money(risk)+" · ได้ "+money(reward)+" · ค่าธรรมเนียม "+money(cost)+"</div>"
+      : "⛔ NO-GO<div style='font:600 12px var(--mono);margin-top:6px;color:var(--dim)'>ติด "+fails+" ข้อ — ไม่กด</div>";
+
+    /* ---- โน้ต ---- */
+    var tips=[];
+    if(rr<1.5 && risk>0) tips.push("RR ต่ำ — ขยับ TP ไปที่ "+ (en + dir*1.5*Math.abs(en-sl)).toFixed(1) +" จะได้ 1.5");
+    if(costRatio<4) tips.push("TP สั้นเกิน — "+S.name+" ต้อง TP อย่างน้อย "+Math.ceil(4*cost/(S.tv*qty))+" ticks");
+    if(sym==="MGC" && qty>=3) tips.push("💡 ใช้ MGC "+qty+" สัญญา = ค่าธรรมเนียม "+money(cost)+" · GC 1 สัญญาเสียแค่ $4.32 (ขนาดใกล้เคียง 10 ไมโคร)");
+    if(risk>room && room>0) tips.push("ลดเหลือ "+Math.max(0,Math.floor(room/(slT*S.tv)))+" สัญญา ถึงจะไม่เกิน DLL ที่เหลือ");
+    if(pct>=50) tips.push("⚠️ ใช้ DLL ไปเกินครึ่งแล้ว — วันนี้ควรหยุด");
+
+    document.getElementById("pgNote").innerHTML='<div class="pgnote">'
+      +(tips.length? tips.map(function(t){return "• "+t;}).join("<br>") : "ทุกข้อผ่าน — เข้าได้ตามแผน")
+      +'<br><span style="color:var(--faint);font-size:11px">ค่าธรรมเนียม Topstep ไป-กลับ/สัญญา: MGC $1.92 · GC $4.32 · MNQ $1.22 · NQ $3.78 (อัปเดต 20 ก.ค. 2026) · ค่าที่กรอกจะหายเมื่อรีเฟรช · ⚠️ ไม่ใช่คำแนะนำการลงทุน</span></div>';
+  }
+
+  ["pgSym","pgQty","pgEntry","pgSL","pgTP","pgLv","pgDLL","pgPL","pgN","pgMaxN","pgTot","pgBest"].forEach(function(id){
+    var e=document.getElementById(id); if(e){ e.addEventListener("input",calc); e.addEventListener("change",calc); }
+  });
+  calc();
+})();
+</script>
 </body>
 </html>
