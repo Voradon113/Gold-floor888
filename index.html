@@ -2219,5 +2219,109 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   calc();
 })();
 </script>
+
+<script>
+/* ===== การ์ด "โซนวันนี้" · ระดับพร้อมเทรด (ราคา GC futures) ===== */
+(function(){
+  var CSS='.zcard .zlad{display:flex;flex-direction:column;gap:5px;font:600 13px var(--mono)}'
+  +'.zrow{display:grid;grid-template-columns:98px 1fr 152px;gap:10px;align-items:center;padding:9px 11px;border-radius:11px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}'
+  +'.zrow.up{border-left:4px solid #ef5350}.zrow.dn{border-left:4px solid #26a69a}'
+  +'.zrow.now{background:linear-gradient(90deg,rgba(255,200,80,.22),transparent);border:1px dashed #ffc850}'
+  +'.zrow.hot{box-shadow:0 0 0 2px #ffc850 inset}'
+  +'.zp{font:800 16px var(--mono)}.zl{color:var(--dim)}'
+  +'.zl small{display:block;color:var(--faint);font:600 10px var(--mono);margin-top:2px}'
+  +'.zd{text-align:right;font:700 11px var(--mono);color:var(--faint)}'
+  +'.zd b{display:block;color:var(--ink);font-size:12px}'
+  +'.zchips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}'
+  +'.zchip{padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.07);font:700 11px var(--mono);color:var(--dim)}'
+  +'.zplan{margin-top:11px;padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.045);font:600 12px/1.75 var(--mono);color:var(--dim)}'
+  +'.zplan b{color:var(--ink)}.zplan .bad{color:#ef5350}'
+  +'@media(max-width:620px){.zrow{grid-template-columns:80px 1fr;row-gap:4px}.zd{grid-column:1/3;text-align:left}}';
+  var st=document.createElement('style'); st.textContent=CSS; document.head.appendChild(st);
+
+  var a=document.getElementById('sdBody'); if(!a) return;
+  var sdCard=a.closest('.card'); if(!sdCard) return;
+  var sdGrid=sdCard.parentElement; if(!sdGrid||!sdGrid.parentElement) return;
+  var g=document.createElement('div'); g.className='grid';
+  g.innerHTML='<div class="card zcard"><h2>🎯 โซนวันนี้ · ราคา GC พร้อมใช้ <span class="chip" id="zChip">—</span></h2><div id="zoneBody"></div></div>';
+  sdGrid.parentElement.insertBefore(g,sdGrid);
+
+  var RISK=200, FEE=1.92;
+  function nf(x,d){ d=(d===undefined?1:d); return Number(x).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+  function off(){ var e=document.querySelector('.basisnum'); if(!e) return 2.25;
+    var v=parseFloat(e.innerText.replace(/[−–—]/g,'-').replace(/[^0-9.\-]/g,''));
+    return isFinite(v)?-v:2.25; }
+
+  function draw(){
+    var box=document.getElementById('zoneBody'); if(!box) return;
+    var C=null,spot=null;
+    try{ C=(MP&&MP.candles)||null; spot=(MP&&MP.bid)||null; }catch(e){}
+    if(!C||C.length<30||!spot){ box.innerHTML='<div class="zplan">รอแท่งเทียนจาก MT5…</div>'; return; }
+    var O=off(), px=spot+O, i;
+
+    var trs=[]; for(i=1;i<C.length;i++) trs.push(Math.max(C[i][2]-C[i][3],Math.abs(C[i][2]-C[i-1][4]),Math.abs(C[i][3]-C[i-1][4])));
+    var l14=trs.slice(-14), atr=l14.reduce(function(x,y){return x+y;},0)/l14.length;
+    var r=[]; for(i=1;i<C.length;i++) if(C[i-1][4]>0) r.push(Math.log(C[i][4]/C[i-1][4]));
+    var mu=r.reduce(function(x,y){return x+y;},0)/r.length;
+    var vv=r.reduce(function(x,y){return x+(y-mu)*(y-mu);},0)/(r.length-1);
+    var sd1=Math.sqrt(vv)*Math.sqrt(96)*C[C.length-1][4];
+
+    var SL=Math.max(4,Math.min(8,Math.round(atr*1.1*2)/2)), TP=SL*2;
+    var N=Math.max(1,Math.floor(RISK/(SL*10)));
+    var rk=N*SL*10, tg=N*TP*10, fee=N*FEE;
+
+    var L=[];
+    function add(p,l,s,w){ if(isFinite(p)&&Math.abs(p-px)<3.4*sd1) L.push({p:p,l:l,s:s||'',w:w||1}); }
+    add(px+sd1,'+1SD','ขอบกรอบวันนี้',2); add(px-sd1,'−1SD','ขอบกรอบวันนี้',2);
+    add(px+2*sd1,'+2SD','สุดโต่ง · สวนแรง',2); add(px-2*sd1,'−2SD','สุดโต่ง · สวนแรง',2);
+    var hh=-1e9,ll=1e9; for(i=0;i<C.length;i++){ if(C[i][2]>hh)hh=C[i][2]; if(C[i][3]<ll)ll=C[i][3]; }
+    add(hh+O,'High 20 ชม.','ของเก่า · BSL',3); add(ll+O,'Low 20 ชม.','ของเก่า · SSL',3);
+    function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++){ add(parseFloat(arr[k][0]),'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString(),4); } }
+    try{ wl(JP.callWalls,'CALL'); wl(JP.putWalls,'PUT'); }catch(e){}
+
+    L.sort(function(x,y){ return y.p-x.p; });
+    var M=[]; for(i=0;i<L.length;i++){ var lz=M[M.length-1];
+      if(lz&&Math.abs(lz.p-L[i].p)<0.6*atr){ if(L[i].w>lz.w) M[M.length-1]=L[i]; } else M.push(L[i]); }
+    var up=M.filter(function(z){return z.p>px;}).slice(-3);
+    var dn=M.filter(function(z){return z.p<=px;}).slice(0,3);
+    var at=M.filter(function(z){return Math.abs(z.p-px)<=0.35*atr;});
+
+    var H='<div class="zchips"><span class="zchip">ATR M15 '+nf(atr)+'</span><span class="zchip">1SD ±'+nf(sd1)+'</span>'
+      +'<span class="zchip">ไม้ '+N+' MGC</span><span class="zchip">SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
+      +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span></div><div class="zlad">';
+
+    function row(z,dir){
+      var d=z.p-px, tk=Math.round(Math.abs(d)/0.1), hot=Math.abs(d)<=0.35*atr;
+      var sl=dir>0?z.p+SL:z.p-SL, tp=dir>0?z.p-TP:z.p+TP, side=dir>0?'SELL':'BUY';
+      return '<div class="zrow '+(dir>0?'up':'dn')+(hot?' hot':'')+'">'
+        +'<div class="zp">'+nf(z.p)+'</div>'
+        +'<div class="zl">'+z.l+(hot?' 🔔':'')+'<small>'+(z.s?z.s+' · ':'')
+        +(hot?'ถึงแล้ว — รอแท่ง M5 ปิดกลับ':'ห่าง '+nf(Math.abs(d))+' ('+tk+' ticks)')+'</small></div>'
+        +'<div class="zd"><b>'+side+'</b>SL '+nf(sl)+' · TP '+nf(tp)+'</div></div>';
+    }
+    for(i=0;i<up.length;i++) H+=row(up[i],1);
+    H+='<div class="zrow now"><div class="zp">'+nf(px)+'</div><div class="zl">◀ ราคา GC ตอนนี้'
+      +'<small>XAUUSD '+nf(spot,2)+' · basis '+(O>=0?'+':'')+nf(O,2)+'</small></div>'
+      +'<div class="zd">'+(at.length?'<b>ถึงระดับ</b>รอยืนยัน':'<b>รอ</b>ยังไม่ถึงเส้น')+'</div></div>';
+    for(i=0;i<dn.length;i++) H+=row(dn[i],-1);
+    H+='</div>';
+
+    H+='<div class="zplan"><b>กติกาคงที่ — ทำเหมือนกันทุกวัน</b><br>'
+      +'1. ราคายังไม่ถึงเส้น → <b>ไม่ทำอะไร</b><br>'
+      +'2. แตะเส้นแล้ว → ยังไม่เข้า · <b>รอแท่ง M5 ปิดกลับ</b><br>'
+      +'3. เข้าตาม SELL/BUY ในแถว · SL/TP ตามตัวเลข · <b>'+N+' MGC</b><br>'
+      +'4. ครบ <b>3 ไม้</b> หรือ <b>−$300</b> → ปิดจอ<br>'
+      +'<span class="bad">⛔ ห้ามเข้าระหว่างทางที่ราคากำลังวิ่งไปหาเส้น = ไล่ราคา (สถิติจริงของคุณ −$6.64/ไม้)</span><br>'
+      +'ค่าคอม '+N+' MGC = $'+nf(fee,2)+'/รอบ ('+nf(fee/rk*100,1)+'% ของความเสี่ยง)<br>'
+      +'<span style="color:var(--faint)">⚠️ เครื่องมือช่วยตัดสินใจ ไม่ใช่คำแนะนำการลงทุน</span></div>';
+    box.innerHTML=H;
+
+    var ch=document.getElementById('zChip');
+    if(ch){ var near=Math.min(up.length?up[up.length-1].p-px:1e9, dn.length?px-dn[0].p:1e9);
+      ch.textContent = at.length ? 'ถึงระดับแล้ว' : (isFinite(near)&&near<1e8 ? 'ใกล้สุด '+nf(near)+' จุด' : '—'); }
+  }
+  draw(); setInterval(draw,4000);
+})();
+</script>
 </body>
 </html>
