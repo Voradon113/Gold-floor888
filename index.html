@@ -334,13 +334,13 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
     <div class="pos" id="pos"></div>
   </div></div>
 
-  <div class="grid g2">
+  <div class="grid">
     <div class="card">
       <h2>📏 ระยะถึงโซน · แจ้งเตือน <button class="bell" id="bellBtn" onclick="if(window.sdxEnableAlerts)sdxEnableAlerts()">🔔 เปิดเสียง/แจ้งเตือน</button></h2>
       <div class="zdist" id="zdist"></div>
       <div class="alerts" id="alerts"></div>
     </div>
-    <div class="card">
+    <div class="card mt5box">
       <h2>🎯 ความเสี่ยงไม้เปิด · R:R <span class="chip" id="rrChip">—</span></h2>
       <div class="rrpos" id="rrpos"></div>
     </div>
@@ -2643,6 +2643,162 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   var lastDay=today();
   setInterval(function(){ if(today()!==lastDay){ lastDay=today(); draw(); } },30000);
   setInterval(function(){ if(gurl()&&document.visibilityState==='visible') pull(); },120000);
+})();
+</script>
+<script>
+/* ===== 📅 ปฏิทินข่าว · ห้ามเทรด — add-on อ่านอย่างเดียว (ข้อมูลฝังในไฟล์) =====
+   เหตุผล: บัญชี prop (Topstep) ตายเพราะเทรดตอนข่าวออกมากที่สุด —
+   สเปรดถ่าง + ราคากระโดด → ชน daily loss limit ในไม้เดียว
+   ✏️ แก้/เพิ่มข่าวได้ที่ตัวแปร EVENTS ด้านล่าง (เวลาไทย +07:00) */
+(function(){
+  var EVENTS = [
+    // ── FOMC (ยืนยันจากแท็บ CME FedWatch) · แถลง 14:00 ET
+    { t:'2026-07-30T01:00+07:00', n:'FOMC · แถลงดอกเบี้ย',            lv:3, block:'20:00–02:30' },
+    { t:'2026-09-17T01:00+07:00', n:'FOMC · ดอกเบี้ย + dot plot ใหม่', lv:3, block:'20:00–02:30' },
+    { t:'2026-10-29T01:00+07:00', n:'FOMC · แถลงดอกเบี้ย',            lv:3, block:'20:00–02:30' },
+    { t:'2026-12-10T02:00+07:00', n:'FOMC · ดอกเบี้ย + dot plot ใหม่', lv:3, block:'21:00–03:30' },
+    // ── NFP จ้างงาน (ศุกร์แรกของเดือน · 08:30 ET)
+    { t:'2026-08-07T19:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'19:00–20:30' },
+    { t:'2026-09-04T19:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'19:00–20:30' },
+    { t:'2026-10-02T19:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'19:00–20:30' },
+    { t:'2026-11-06T20:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'20:00–21:30' },
+    { t:'2026-12-04T20:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'20:00–21:30' }
+    // ── CPI: ยังไม่ใส่เพราะยังไม่ยืนยันวัน (BLS ออกกลางเดือน 08:30 ET = 19:30 น. ไทย)
+    //    เช็ควันจริงที่ bls.gov/schedule แล้วเพิ่มบรรทัดแบบนี้:
+    //  ,{ t:'2026-08-12T19:30+07:00', n:'CPI · เงินเฟ้อ', lv:3, block:'19:00–20:30' }
+  ];
+
+  var css = document.createElement("style");
+  css.textContent =
+    ".ecwarn{padding:11px 14px;border-radius:12px;font:800 13px var(--mono);margin-bottom:12px;line-height:1.6}"+
+    ".ecwarn.red{background:rgba(240,96,74,.15);border:1px solid rgba(240,96,74,.55);color:var(--down)}"+
+    ".ecwarn.amber{background:rgba(232,183,63,.13);border:1px solid rgba(232,183,63,.5);color:var(--gold2)}"+
+    ".eclist{display:flex;flex-direction:column;gap:9px}"+
+    ".ecrow{display:grid;grid-template-columns:10px 1fr auto;gap:12px;align-items:center;padding:10px 13px;"+
+      "border-radius:12px;background:var(--card2);border:1px solid var(--line)}"+
+    ".ecrow.hot{border-color:rgba(240,96,74,.5);background:rgba(240,96,74,.07)}"+
+    ".ecdot{width:10px;height:10px;border-radius:99px}"+
+    ".ecname{font:700 13px var(--mono);color:var(--ink)}"+
+    ".ecwhen{font-size:11.5px;color:var(--dim);margin-top:2px}"+
+    ".ecblk{font:700 10.5px var(--mono);color:var(--down);margin-top:3px;letter-spacing:.2px}"+
+    ".eccd{font:800 14px var(--mono);text-align:right;white-space:nowrap}"+
+    ".ecfoot{margin-top:12px;font-size:11.5px;color:var(--faint);line-height:1.75}";
+  document.head.appendChild(css);
+
+  var g = document.createElement("div");
+  g.className = "grid";
+  g.innerHTML = '<div class="card">'
+    + '<h2>📅 ปฏิทินข่าว · ห้ามเทรด <span class="chip" id="ecChip">—</span></h2>'
+    + '<div class="ecwarn" id="ecWarn" style="display:none"></div>'
+    + '<div class="eclist" id="ecList"></div>'
+    + '<div class="ecfoot" id="ecFoot"></div></div>';
+  var wrap = document.querySelector(".wrap");
+  var firstGrid = wrap ? wrap.querySelector(".grid") : null;
+  if(wrap && firstGrid) wrap.insertBefore(g, firstGrid); else if(wrap) wrap.appendChild(g);
+
+  function fmt(d){
+    return d.toLocaleString('th-TH', { timeZone:'Asia/Bangkok', weekday:'short',
+      day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) + ' น.';
+  }
+  function cd(ms){
+    if(ms < 0) return 'กำลังเกิด';
+    var m = Math.floor(ms/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+    if(d > 0) return d + ' วัน ' + (h%24) + ' ชม.';
+    if(h > 0) return h + ' ชม. ' + (m%60) + ' นาที';
+    return m + ' นาที';
+  }
+
+  /* ── ดึงปฏิทินสดจาก ForexFactory (ผ่าน CORS proxy) มาเสริม ──
+     พร็อกซีฟรีล่มได้ → ถ้าดึงไม่ได้ก็ใช้ EVENTS ที่ฝังไว้ต่อ ไม่พัง */
+  var LIVE = [], liveOK = false;
+  function pullFF(){
+    var src = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+    fetch('https://corsproxy.io/?url=' + encodeURIComponent(src), {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!Array.isArray(d)) return;
+        LIVE = d.filter(function(e){ return e.country === 'USD' && e.impact === 'High'; })
+                .map(function(e){
+                  var ts = new Date(e.date).getTime();
+                  return { t:e.date, n:'🇺🇸 ' + e.title, ts:ts, live:true,
+                           block:blk(ts), fc:e.forecast || '', pv:e.previous || '' };
+                })
+                .filter(function(x){ return isFinite(x.ts); });
+        liveOK = true; tick();
+      })
+      .catch(function(){ liveOK = false; });
+  }
+  function hhmm(ms){
+    return new Date(ms).toLocaleTimeString('th-TH',
+      { timeZone:'Asia/Bangkok', hour:'2-digit', minute:'2-digit' });
+  }
+  function blk(ts){ return hhmm(ts - 30*60e3) + '–' + hhmm(ts + 60*60e3); }
+
+  function tick(){
+    var list = document.getElementById('ecList'); if(!list) return;
+    var now = Date.now();
+    // รวมข่าวฝังในไฟล์ + ข่าวสดจาก FF แล้วตัดตัวซ้ำ (ห่างกัน < 45 นาที = ตัวเดียวกัน · ใช้ของสด)
+    var base = EVENTS.map(function(e){ return { e:e, ts:new Date(e.t).getTime() }; });
+    var live = LIVE.map(function(x){ return { e:x, ts:x.ts }; });
+    var merged = live.concat(base.filter(function(b){
+      return !live.some(function(l){ return Math.abs(l.ts - b.ts) < 45*60e3; });
+    }));
+    // ยุบข่าวที่ออกพร้อมกัน (FOMC มักแตกเป็น Federal Funds Rate + Statement) ให้เหลือแถวเดียว
+    var byTime = {};
+    merged.filter(function(x){ return x.ts > now - 2*3600e3; }).forEach(function(x){
+      var k = Math.round(x.ts / 300000);           // จัดกลุ่มทุก 5 นาที
+      if(byTime[k]) byTime[k].names.push(x.e.n);
+      else byTime[k] = { ts:x.ts, e:x.e, names:[x.e.n] };
+    });
+    var up = Object.keys(byTime).map(function(k){ return byTime[k]; })
+                   .sort(function(a,b){ return a.ts - b.ts; })
+                   .slice(0, 5);
+
+    if(!up.length){
+      list.innerHTML = '<div class="ecwhen">ไม่มีข่าวในรายการ — เพิ่มได้ที่ตัวแปร EVENTS ในไฟล์</div>';
+      document.getElementById('ecChip').textContent = '—'; return;
+    }
+
+    var next = up[0], diff = next.ts - now;
+    document.getElementById('ecChip').textContent =
+      'ถัดไปอีก ' + cd(diff) + (liveOK ? ' · ● FF สด' : '');
+
+    list.innerHTML = up.map(function(x){
+      var dt = x.ts - now, hot = dt < 24*3600e3;
+      var col = hot ? 'var(--down)' : (dt < 72*3600e3 ? 'var(--gold2)' : 'var(--faint)');
+      var nm = x.names ? x.names.join(' · ') : x.e.n;
+      if(nm.length > 78) nm = nm.slice(0, 76) + '…';
+      return '<div class="ecrow' + (hot ? ' hot' : '') + '">'
+        + '<span class="ecdot" style="background:' + col + '"></span>'
+        + '<div><div class="ecname">' + nm + '</div>'
+        + '<div class="ecwhen">' + fmt(new Date(x.ts)) + '</div>'
+        + (x.e.block ? '<div class="ecblk">⛔ ห้ามเทรด ' + x.e.block + '</div>' : '')
+        + '</div>'
+        + '<div class="eccd" style="color:' + col + '">' + cd(dt) + '</div></div>';
+    }).join('');
+
+    // แถบเตือนใหญ่
+    var w = document.getElementById('ecWarn');
+    if(diff < 0){
+      w.style.display=''; w.className='ecwarn red';
+      w.innerHTML = '🔴 <b>' + next.e.n + ' กำลังออก</b> — หยุดเทรด รอราคานิ่งอย่างน้อย 30 นาที';
+    } else if(diff < 30*60e3){
+      w.style.display=''; w.className='ecwarn red';
+      w.innerHTML = '🔴 <b>อีก ' + cd(diff) + ' ' + next.e.n + '</b> — ห้ามเปิดไม้ใหม่ · ไม้ที่ถืออยู่ให้ปิดหรือลดขนาด';
+    } else if(diff < 24*3600e3){
+      w.style.display=''; w.className='ecwarn amber';
+      w.innerHTML = '🟡 <b>วันนี้มีข่าวใหญ่</b> — ' + next.e.n + ' อีก ' + cd(diff) + ' · วางแผนให้จบก่อนเวลานั้น';
+    } else w.style.display='none';
+
+    document.getElementById('ecFoot').innerHTML =
+      'บัญชี prop ตายเพราะเทรดตอนข่าวมากที่สุด — สเปรดถ่าง + ราคากระโดด → ชน daily loss limit ในไม้เดียว<br>'
+      + (liveOK
+          ? '🇺🇸 ข่าว USD ระดับ High ดึงสดจาก ForexFactory ทุก 15 นาที (รวม CPI อัตโนมัติ) + FOMC/NFP ฝังในไฟล์เป็นตัวสำรอง'
+          : '⚠️ ต่อ ForexFactory ไม่ได้ (พร็อกซีล่ม) — กำลังใช้ FOMC/NFP ที่ฝังในไฟล์ · <b>ช่วงนี้เช็ค CPI เองที่ forexfactory.com</b>');
+  }
+  tick(); pullFF();
+  setInterval(tick, 30000);
+  setInterval(function(){ if(document.visibilityState === 'visible') pullFF(); }, 15*60e3);
 })();
 </script>
 <script>
