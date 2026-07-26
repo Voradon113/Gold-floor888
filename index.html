@@ -2902,6 +2902,121 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 })();
 </script>
 <script>
+/* ===== 📊 POC · โซนคุ้มค่า (TPO Profile) — add-on อ่านอย่างเดียว =====
+   POC = ราคาที่ตลาดใช้เวลาอยู่นานที่สุด = "แม่เหล็ก" ที่ราคามักถูกดึงกลับไปหา
+   Value Area (VAH–VAL) = โซนที่ราคาอยู่ 70% ของเวลา = โซนคุ้มค่า/ราคายุติธรรม
+   ★ MT5 ส่งมาแค่ OHLC ไม่มี volume → ใช้ TPO (นับ "เวลา" ที่ราคาอยู่แต่ละชั้น)
+     ซึ่งคือ Market Profile ต้นตำรับของ CME — ไม่ใช่ Volume Profile ให้เข้าใจตรงกัน */
+(function(){
+  var BINS = 46, VA = 0.70;
+  var css = document.createElement("style");
+  css.textContent =
+    ".pcwrap{display:grid;grid-template-columns:190px 1fr;gap:18px;align-items:center}"+
+    "@media(max-width:640px){.pcwrap{grid-template-columns:1fr}}"+
+    ".pcrow{display:flex;align-items:center;gap:10px;margin:7px 0;font:700 12px var(--mono)}"+
+    ".pclab{width:104px;color:var(--dim);flex:none}"+
+    ".pcval{font:800 14px var(--mono)}"+
+    ".pcnote{margin-top:12px;padding:11px 13px;border-radius:11px;background:var(--card2);"+
+      "border:1px solid var(--line);font-size:12.5px;line-height:1.7}"+
+    ".pcfoot{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.7}";
+  document.head.appendChild(css);
+
+  var g = document.createElement("div");
+  g.className = "grid";
+  g.innerHTML = '<div class="card"><h2>📊 POC · โซนคุ้มค่า (TPO) '
+    + '<span class="chip" id="pcChip">—</span></h2>'
+    + '<div id="pcBody" style="color:var(--dim);font-size:12px">รอแท่งเทียนจาก MT5…</div></div>';
+  var anchor = null;
+  Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"), function(h){
+    if(!anchor && h.textContent.indexOf("Basis") === 0) anchor = h.closest(".grid");
+  });
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g, anchor);
+  else document.querySelector(".wrap").appendChild(g);
+
+  function build(c){
+    var lo = Infinity, hi = -Infinity;
+    c.forEach(function(x){ if(x[3] < lo) lo = x[3]; if(x[2] > hi) hi = x[2]; });
+    if(!(hi > lo)) return null;
+    var step = (hi - lo) / BINS, arr = [];
+    for(var i = 0; i < BINS; i++) arr.push(0);
+    c.forEach(function(x){
+      var a = Math.floor((x[3] - lo) / step), b = Math.floor((x[2] - lo) / step);
+      a = Math.max(0, Math.min(BINS-1, a)); b = Math.max(0, Math.min(BINS-1, b));
+      var w = 1 / (b - a + 1);            // แท่ง 1 แท่ง = เวลา 1 หน่วย กระจายทั่วช่วงของมัน
+      for(var i = a; i <= b; i++) arr[i] += w;
+    });
+    // POC = ชั้นที่เวลามากสุด
+    var poc = 0;
+    for(var i = 1; i < BINS; i++) if(arr[i] > arr[poc]) poc = i;
+    // Value Area = ขยายจาก POC จนครบ 70% ของเวลาทั้งหมด
+    var total = arr.reduce(function(s, v){ return s + v; }, 0);
+    var loI = poc, hiI = poc, acc = arr[poc];
+    while(acc < VA * total && (loI > 0 || hiI < BINS-1)){
+      var dn = loI > 0 ? arr[loI-1] : -1, up = hiI < BINS-1 ? arr[hiI+1] : -1;
+      if(up >= dn){ hiI++; acc += arr[hiI]; } else { loI--; acc += arr[loI]; }
+    }
+    var pr = function(i){ return lo + (i + 0.5) * step; };
+    return { arr:arr, lo:lo, hi:hi, step:step, max:arr[poc],
+             poc:pr(poc), vah:pr(hiI), val:pr(loI) };
+  }
+
+  function tick(){
+    var b = document.getElementById("pcBody"); if(!b) return;
+    var M = (typeof MP !== "undefined") ? MP : null;
+    var c = (M && Array.isArray(M.candles) && M.candles.length >= 20) ? M.candles : null;
+    if(!c){ b.textContent = "รอแท่งเทียนจาก MT5 (เปิด MT5 + EA ค้างไว้)"; return; }
+
+    var P = build(c); if(!P){ b.textContent = "คำนวณไม่ได้"; return; }
+    var px = Number(M.bid);
+    var hrs = Math.round((c[c.length-1][0] - c[0][0]) / 3600);
+    document.getElementById("pcChip").textContent = "M15 · " + hrs + " ชม.ล่าสุด";
+
+    // ── กราฟโปรไฟล์แนวนอน (ราคาสูงอยู่บน)
+    var W = 186, H = 208, n = P.arr.length, bh = H / n, svg = '';
+    for(var i = n - 1; i >= 0; i--){
+      var y = (n - 1 - i) * bh, w = (P.arr[i] / P.max) * W;
+      var mid = P.lo + (i + 0.5) * P.step;
+      var inVA = mid >= P.val - P.step/2 && mid <= P.vah + P.step/2;
+      var isPoc = Math.abs(mid - P.poc) < P.step * 0.6;
+      var col = isPoc ? "var(--gold)" : (inVA ? "var(--accent)" : "var(--track)");
+      svg += '<rect x="0" y="' + y.toFixed(1) + '" width="' + Math.max(1.5, w).toFixed(1)
+           + '" height="' + Math.max(1, bh - 0.6).toFixed(1) + '" fill="' + col
+           + '" opacity="' + (isPoc ? 1 : inVA ? .72 : .5) + '"/>';
+    }
+    if(isFinite(px) && px >= P.lo && px <= P.hi){
+      var py = (1 - (px - P.lo) / (P.hi - P.lo)) * H;
+      svg += '<line x1="0" y1="' + py.toFixed(1) + '" x2="' + W + '" y2="' + py.toFixed(1)
+           + '" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="4 3"/>';
+    }
+
+    function row(lab, val, col){
+      return '<div class="pcrow"><span class="pclab">' + lab + '</span>'
+           + '<span class="pcval" style="color:' + col + '">' + val.toLocaleString(undefined,
+             {minimumFractionDigits:1, maximumFractionDigits:1}) + '</span></div>';
+    }
+    var dist = isFinite(px) ? (px - P.poc) : null;
+    var zone = !isFinite(px) ? null
+             : px > P.vah ? ["เหนือโซนคุ้มค่า", "var(--down)", "ราคาแพงกว่าที่ตลาดยอมรับ — ระวังถูกดึงกลับลงหา POC"]
+             : px < P.val ? ["ใต้โซนคุ้มค่า", "var(--up)", "ราคาถูกกว่าที่ตลาดยอมรับ — ระวังเด้งกลับขึ้นหา POC"]
+             : ["ในโซนคุ้มค่า", "var(--gold2)", "ราคาอยู่ในกรอบยุติธรรม — แกว่งรอบ POC · ไม่ใช่จังหวะไล่"];
+
+    b.innerHTML = '<div class="pcwrap">'
+      + '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block">' + svg + '</svg>'
+      + '<div>'
+      + row("VAH · ขอบบน", P.vah, "var(--dim)")
+      + row("★ POC แม่เหล็ก", P.poc, "var(--gold)")
+      + row("VAL · ขอบล่าง", P.val, "var(--dim)")
+      + (isFinite(px) ? row("ราคาตอนนี้", px, "var(--ink)") : "")
+      + (zone ? '<div class="pcnote" style="border-color:' + zone[1] + '"><b style="color:' + zone[1] + '">'
+          + zone[0] + '</b> · ห่าง POC ' + (dist >= 0 ? "+" : "−") + Math.abs(dist).toFixed(1) + '<br>' + zone[2] + '</div>' : "")
+      + '</div></div>'
+      + '<div class="pcfoot">POC = ราคาที่ตลาดอยู่<b>นานที่สุด</b> → ทำตัวเป็นแม่เหล็ก · แถบฟ้า = Value Area (70% ของเวลา)<br>'
+      + '⚠️ คำนวณจาก <b>เวลา</b> (TPO) ไม่ใช่วอลุ่ม เพราะ MT5 ส่งมาแค่ OHLC — ทิศทางเดียวกับ Volume Profile แต่ไม่เท่ากันเป๊ะ</div>';
+  }
+  tick(); setInterval(tick, 5000);
+})();
+</script>
+<script>
 /* เปิดการ์ด MT5 กลับมาชั่วคราวด้วย ?mt5show=1 (ไม่ต้องแก้ไฟล์) */
 if(new URLSearchParams(location.search).get('mt5show')==='1')
   Array.prototype.forEach.call(document.querySelectorAll('.mt5box'),function(e){ e.style.display=''; });
