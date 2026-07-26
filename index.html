@@ -1702,8 +1702,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }
     if(!best) return {C:C,A:A,sh:sh,sl:sl,state:"wait"};
 
-    var rec=false;
-    for(var j=best.k+1;j<n;j++){ if(best.dir<0 ? Cl(j)<best.lv : Cl(j)>best.lv){ rec=true; break; } }
+    var rec=false, recI=-1;
+    for(var j=best.k+1;j<n;j++){ if(best.dir<0 ? Cl(j)<best.lv : Cl(j)>best.lv){ rec=true; recI=j; break; } }
 
     var disp=-1;
     for(var j2=best.k;j2<n;j2++){
@@ -1730,32 +1730,88 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var entry1 = ob ? (ob.lo+ob.hi)/2 : px;
     var risk1 = Math.abs(inval - entry1) || (0.5*A);
     var tp1 = best.dir<0 ? (entry1 - 2*risk1) : (entry1 + 2*risk1);
-    return {C:C,A:A,sh:sh,sl:sl,sw:best,rec:rec,disp:disp,ob:ob,px:px,inOB:inOB,inv:inval,badSL:badSL,entry:entry1,tp:tp1,risk:risk1,state:"found"};
+    return {C:C,A:A,sh:sh,sl:sl,sw:best,rec:rec,recI:recI,disp:disp,ob:ob,px:px,inOB:inOB,inv:inval,badSL:badSL,entry:entry1,tp:tp1,risk:risk1,state:"found"};
   }
 
+  /* กราฟโครงสร้างแบบ SMC — วาด: BSL/SSL ที่โดนกวาด · จุด SWEEP · CHoCH ·
+     แท่ง displacement · โซน OB · เส้น Entry/SL/TP  (เหมือนที่นักวิเคราะห์วาดมือ) */
   function mini(R,w,h){
+    var RP=64;                                   // ที่ว่างขวาไว้ใส่ป้ายราคา
     var C=R.C, m=Math.min(34,C.length), s=C.length-m;
     var hi=-1e9, lo=1e9;
     for(var i=s;i<C.length;i++){ hi=Math.max(hi,C[i][2]); lo=Math.min(lo,C[i][3]); }
     if(R.ob){ hi=Math.max(hi,R.ob.hi); lo=Math.min(lo,R.ob.lo); }
     if(R.sw){ hi=Math.max(hi,R.sw.lv); lo=Math.min(lo,R.sw.lv); }
-    var pad=(hi-lo)*0.08||1; hi+=pad; lo-=pad;
-    var X=function(i){ return 6+(i-s)*(w-12)/(m-1); };
-    var Y=function(p){ return h-6-(p-lo)/(hi-lo)*(h-12); };
-    var out='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;display:block;border-radius:10px;background:var(--card2)">';
-    if(R.ob){ var col=R.sw.dir<0?DN:UP;
-      out+='<rect x="'+X(R.ob.i).toFixed(1)+'" y="'+Y(R.ob.hi).toFixed(1)+'" width="'+(w-6-X(R.ob.i)).toFixed(1)+'" height="'+Math.max(2,(Y(R.ob.lo)-Y(R.ob.hi))).toFixed(1)+'" fill="'+col+'" opacity=".16"/>';
-      out+='<text x="'+(X(R.ob.i)+4).toFixed(1)+'" y="'+(Y(R.ob.hi)+11).toFixed(1)+'" fill="'+col+'" font-size="9" font-weight="700">OB</text>';
+    if(R.state==="found" && !R.badSL){
+      [R.inv,R.tp,R.entry].forEach(function(v){ if(isFinite(v)){ hi=Math.max(hi,v); lo=Math.min(lo,v); } });
     }
-    if(R.sw){ out+='<line x1="0" y1="'+Y(R.sw.lv).toFixed(1)+'" x2="'+w+'" y2="'+Y(R.sw.lv).toFixed(1)+'" stroke="'+GD+'" stroke-width="1" stroke-dasharray="4 3"/>'
-      +'<text x="4" y="'+(Y(R.sw.lv)-4).toFixed(1)+'" fill="'+GD+'" font-size="9" font-weight="700">LQ '+Math.round(R.sw.lv)+'</text>'; }
-    var cw=Math.max(2,(w-12)/m*0.62);
+    var pad=(hi-lo)*0.10||1; hi+=pad; lo-=pad;
+    var PW=w-RP;                                  // ความกว้างส่วนกราฟ
+    var X=function(i){ return 6+(i-s)*(PW-12)/(m-1); };
+    var Y=function(p){ return h-16-(p-lo)/(hi-lo)*(h-30); };
+    var dir=R.sw?R.sw.dir:-1, dcol=dir<0?DN:UP;
+    var out='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;display:block;border-radius:10px;background:var(--card2)">';
+
+    // ── ป้ายเส้นระดับด้านขวา
+    function lvl(p,txt,col,dash,wd){
+      if(!isFinite(p)) return "";
+      var y=Y(p); if(y<8||y>h-6) return "";
+      return '<line x1="0" y1="'+y.toFixed(1)+'" x2="'+PW+'" y2="'+y.toFixed(1)+'" stroke="'+col
+        +'" stroke-width="'+(wd||1)+'"'+(dash?' stroke-dasharray="'+dash+'"':'')+' opacity=".9"/>'
+        +'<text x="'+(PW+4)+'" y="'+(y+3.5).toFixed(1)+'" fill="'+col+'" font-size="9" font-weight="700">'+txt+'</text>';
+    }
+
+    // ── โซน OB
+    if(R.ob){
+      out+='<rect x="'+X(R.ob.i).toFixed(1)+'" y="'+Y(R.ob.hi).toFixed(1)+'" width="'+(PW-6-X(R.ob.i)).toFixed(1)
+        +'" height="'+Math.max(2,(Y(R.ob.lo)-Y(R.ob.hi))).toFixed(1)+'" fill="'+dcol+'" opacity=".16"/>'
+        +'<text x="'+(X(R.ob.i)+4).toFixed(1)+'" y="'+(Y(R.ob.hi)+11).toFixed(1)+'" fill="'+dcol+'" font-size="9" font-weight="700">OB</text>';
+    }
+
+    // ── เส้นสภาพคล่องที่โดนกวาด (BSL = เหนือ high · SSL = ใต้ low)
+    if(R.sw) out+=lvl(R.sw.lv,(dir<0?"BSL ":"SSL ")+Math.round(R.sw.lv)+(R.sw.eq?" ⚑EQ":""),GD,"4 3",1.4);
+
+    // ── เส้นแผนไม้ (เฉพาะตอน setup ใช้ได้จริง)
+    if(R.state==="found" && !R.badSL){
+      out+=lvl(R.inv,  "SL "+Math.round(R.inv),   DN,"3 3",1);
+      out+=lvl(R.entry,"เข้า "+Math.round(R.entry),"var(--ink)","5 4",1);
+      out+=lvl(R.tp,   "TP "+Math.round(R.tp),    UP,"3 3",1);
+    }
+
+    // ── แท่งเทียน
+    var cw=Math.max(2,(PW-12)/m*0.62);
     for(var i2=s;i2<C.length;i2++){
       var o=C[i2][1],hh=C[i2][2],ll=C[i2][3],cc=C[i2][4];
       var col2=cc>=o?UP:DN, x=X(i2);
-      out+='<line x1="'+x.toFixed(1)+'" y1="'+Y(hh).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+Y(ll).toFixed(1)+'" stroke="'+col2+'" stroke-width="1"/>';
-      out+='<rect x="'+(x-cw/2).toFixed(1)+'" y="'+Y(Math.max(o,cc)).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+Math.max(1,Math.abs(Y(o)-Y(cc))).toFixed(1)+'" fill="'+col2+'"/>';
-      if(R.sw && i2===R.sw.k){ out+='<circle cx="'+x.toFixed(1)+'" cy="'+Y(R.sw.ext).toFixed(1)+'" r="3" fill="'+GD+'"/>'; }
+      var isDisp = (R.disp===i2);
+      out+='<line x1="'+x.toFixed(1)+'" y1="'+Y(hh).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+Y(ll).toFixed(1)
+        +'" stroke="'+col2+'" stroke-width="'+(isDisp?1.8:1)+'"/>';
+      out+='<rect x="'+(x-cw/2).toFixed(1)+'" y="'+Y(Math.max(o,cc)).toFixed(1)+'" width="'+cw.toFixed(1)
+        +'" height="'+Math.max(1,Math.abs(Y(o)-Y(cc))).toFixed(1)+'" fill="'+col2+'"'
+        +(isDisp?' stroke="var(--ink)" stroke-width="1"':'')+'/>';
+    }
+
+    // ── จุด SWEEP (ปลายไส้ที่ไปกวาด)
+    if(R.sw){
+      var xs=X(R.sw.k), ys=Y(R.sw.ext);
+      out+='<circle cx="'+xs.toFixed(1)+'" cy="'+ys.toFixed(1)+'" r="3.6" fill="'+GD+'"/>'
+        +'<text x="'+xs.toFixed(1)+'" y="'+(dir<0?(ys-6):(ys+11)).toFixed(1)
+        +'" fill="'+GD+'" font-size="8.5" font-weight="700" text-anchor="middle">SWEEP</text>';
+    }
+
+    // ── CHoCH = แท่งที่ปิดกลับเข้ามา (เปลี่ยนโครงสร้าง)
+    if(R.recI>=0 && R.recI>=s){
+      var xc=X(R.recI), yc=Y(C[R.recI][4]);
+      out+='<line x1="'+xc.toFixed(1)+'" y1="'+(yc-13).toFixed(1)+'" x2="'+xc.toFixed(1)+'" y2="'+(yc+13).toFixed(1)
+        +'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 2"/>'
+        +'<text x="'+(xc+3).toFixed(1)+'" y="'+(yc-15).toFixed(1)+'" fill="var(--accent)" font-size="8.5" font-weight="700">CHoCH</text>';
+    }
+
+    // ── แท่ง displacement ติดป้าย
+    if(R.disp>=0 && R.disp>=s){
+      var xd=X(R.disp), yd=Y(dir<0?C[R.disp][3]:C[R.disp][2]);
+      out+='<text x="'+xd.toFixed(1)+'" y="'+(dir<0?(yd+11):(yd-5)).toFixed(1)
+        +'" fill="var(--ink)" font-size="8.5" font-weight="700" text-anchor="middle">DISP</text>';
     }
     return out+'</svg>';
   }
@@ -1799,7 +1855,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<div class="apstate" style="color:var(--dim)">⏳ ยังไม่มี setup</div>'
         +'<div class="apsub">ยังไม่มีการ<b>กวาด LQ</b> ใน 8 แท่งล่าสุด — <b>อยู่เฉยๆ คือกำไร</b></div>'
         +'<div class="apnote">ระบบเฝ้าดู: ราคาต้องแทงทะลุจุดสูง/ต่ำล่าสุด (ที่ SL รายย่อยกองอยู่) แล้ว<b>ปิดกลับเข้ามา</b> — ถึงจะเริ่มนับเป็น setup</div>'
-        +'</div><div>'+mini(R,340,150)+'</div></div>';
+        +'</div><div>'+mini(R,420,196)+'</div></div>';
       return;
     }
 
@@ -1832,7 +1888,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       +'<div class="apsub">ทิศ <b style="color:'+col+'">'+side+'</b> · '+sub+'</div>'
       +'<div class="apck">'+chk.map(function(c){ return '<div><span>'+(c[1]?"✅":"⬜")+'</span><span style="color:'+(c[1]?"var(--ink)":"var(--faint)")+'">'+c[0]+'</span></div>'; }).join("")+'</div>'
       +'</div><div>'
-      +mini(R,340,150)
+      +mini(R,420,196)
       +'<div class="aplv">'
       +  '<div><small>โซน OB</small><b style="color:'+col+'">'+(R.ob?f2(R.ob.lo)+"–"+f2(R.ob.hi):"—")+'</b></div>'
       +  '<div><small>เข้า (กลางโซน OB)</small><b>'+f2(R.entry)+'</b></div>'
