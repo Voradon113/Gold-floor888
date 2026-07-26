@@ -172,10 +172,12 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 /* กล่องกราฟยืดหดได้ — ลากมุมขวาล่าง (native resize ของเบราว์เซอร์) เหมือน TradingView
    กราฟวาดใหม่ตามความสูงจริงเป็นพิกเซล → ตัวหนังสือไม่ยืด ไม่เบลอ */
 .sdxbox{resize:vertical;overflow:hidden;height:430px;min-height:240px;max-height:900px;
-  border-radius:12px;position:relative}
+  border-radius:12px;position:relative;cursor:grab;touch-action:none;user-select:none}
+.sdxbox:active{cursor:grabbing}
 .sdxbox::after{content:"⇕";position:absolute;right:6px;bottom:2px;font-size:11px;
   color:var(--faint);pointer-events:none;opacity:.75}
 .sdxchart{width:100%;height:100%;display:block}
+.sdxhint{margin-top:7px;font:600 11px var(--mono);color:var(--faint);line-height:1.6}
 @media(max-width:700px){.sdxbox{height:320px}}
 .sdxnote{margin-top:8px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.5}
 
@@ -270,9 +272,10 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 
   <div class="grid"><div class="card">
     <h2>กราฟ XAUUSD · โซนราคา (แปลง basis) <span class="chip" id="sdxBasis">basis —</span></h2>
-    <div class="sdxbox" id="sdxBox" title="ลากมุมขวาล่างเพื่อขยาย/ย่อกราฟ">
+    <div class="sdxbox" id="sdxBox" title="ล้อ=ซูม · ลาก=เลื่อน · ลากแกนราคาขวา=ยืดราคา · ดับเบิลคลิก=รีเซ็ต">
       <svg class="sdxchart" id="sdxChart" viewBox="0 0 760 344"></svg>
     </div>
+    <div class="sdxhint">🖱️ ล้อ = ซูม · ลาก = เลื่อนดูย้อนหลัง · ลากแกนราคา (ขวาสุด) = ยืด/บีบราคา · ดับเบิลคลิก = รีเซ็ต · ลากมุมขวาล่าง = ขยายกล่อง</div>
     <div class="sdxnote" id="sdxNote">เส้นระดับจาก JANIE (GC) แปลงเป็น XAUUSD ด้วย basis · เส้นราคา = XAUUSD สดตั้งแต่เปิดหน้า</div>
   </div></div>
 
@@ -727,6 +730,17 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var basis=(xau!=null&&gc!=null)?(xau-gc):null;
     document.getElementById('sdxBasis').textContent='basis '+(basis!=null?((basis>=0?'+':'−')+Math.abs(basis).toFixed(2)):'—');
     var cd=candlesOf(mp);
+    /* ── ซูม/เลื่อน แบบ TradingView ── Z.n=จำนวนแท่งที่โชว์ · Z.off=เลื่อนถอยหลัง · Z.ys=ยืดสเกลราคา */
+    var Z = window.__SDXZ || (window.__SDXZ = { n:0, off:0, ys:1 });
+    var i0 = 0;                                   // index แท่งแรกที่โชว์ (เทียบชุดเต็ม)
+    if(cd && cd.length){
+      var tot = cd.length;
+      var nv  = Z.n > 0 ? Math.max(12, Math.min(Z.n, tot)) : tot;
+      var off = Math.max(0, Math.min(tot - nv, Math.round(Z.off)));
+      Z.off = off; Z.total = tot; Z.view = nv;
+      i0 = tot - nv - off;
+      cd = cd.slice(i0, i0 + nv);
+    }
     if(xau==null && !cd){ svg.innerHTML=txt(350,160,'รอราคา XAUUSD จาก MT5','var(--faint)');
       document.getElementById('sdxNote').textContent='รอ EA (bid ของ '+((mp&&mp.symbol)||'XAUUSD')+')'; return; }
     if(xau!=null){ var now=Date.now(); if(now-lastSample>4000){ ticks.push(xau); if(ticks.length>150) ticks.shift(); lastSample=now; } }
@@ -768,6 +782,11 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       prices=prices.filter(function(v){return v!=null&&!isNaN(v);});
       lo=Math.min.apply(null,prices); hi=Math.max.apply(null,prices);
       var pd2=(hi-lo)*0.08||5; lo-=pd2; hi+=pd2;
+    }
+    /* ยืด/บีบสเกลราคา (ลากแกนราคาฝั่งขวาขึ้น-ลง) — ขยายรอบจุดกึ่งกลาง */
+    if(Z.ys && Z.ys !== 1){
+      var mid=(lo+hi)/2, half=((hi-lo)/2)/Z.ys;
+      lo=mid-half; hi=mid+half;
     }
     var Y=function(p){ return padT+(1-(p-lo)/((hi-lo)||1))*(H-padT-padB); };
     var s='';
@@ -846,7 +865,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     svg.innerHTML=s;
     /* เปิดพิกัดให้ add-on วาดทับได้ (A+ structure / POC) — ไม่กระทบการวาดเดิม */
     window.__SDX = { lo:lo, hi:hi, W:W, H:H, padT:padT, padB:padB, xL:xL, xR:xR,
-                     m:(cd?cd.length:0), Y:Y };
+                     m:(cd?cd.length:0), i0:i0, Y:Y };
     if(typeof window.__sdxOverlay === 'function'){ try{ window.__sdxOverlay(); }catch(e){} }
     document.getElementById('sdxNote').textContent =
       (cd? '🕯️ แท่งเทียน XAUUSD จริงจาก MT5 ('+cd.length+' แท่ง)'
@@ -862,6 +881,80 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     new ResizeObserver(function(){
       clearTimeout(t); t=setTimeout(function(){ try{ render(); }catch(e){} }, 60);
     }).observe(box);
+  })();
+
+  /* ══ ควบคุมกราฟแบบ TradingView ══
+     ล้อเมาส์            = ซูมเวลา เข้า/ออก
+     ลากกลางกราฟ         = เลื่อนดูย้อนหลัง
+     ลากแกนราคา (ขวาสุด) = ยืด/บีบสเกลราคา
+     ดับเบิลคลิก         = รีเซ็ต
+     มือถือ: สองนิ้วบีบ = ซูม · นิ้วเดียวลาก = เลื่อน                        */
+  (function(){
+    var box=document.getElementById('sdxBox'); if(!box) return;
+    var Z=window.__SDXZ||(window.__SDXZ={n:0,off:0,ys:1});
+    var draw=function(){ try{ render(); }catch(e){} };
+    var clamp=function(v,a,b){ return Math.max(a,Math.min(b,v)); };
+    var AXIS=0.90;                                   // ขวาเกิน 90% = โซนแกนราคา
+
+    function zoom(f, total){
+      var cur = Z.n>0 ? Z.n : (total||80);
+      Z.n = clamp(Math.round(cur*f), 12, total||80);
+      draw();
+    }
+    box.addEventListener('wheel', function(e){
+      e.preventDefault();
+      var r=box.getBoundingClientRect();
+      if((e.clientX-r.left)/r.width > AXIS){         // ล้อบนแกนราคา = ยืดราคา
+        Z.ys = clamp(Z.ys*(e.deltaY>0?0.9:1.1), 0.3, 6); draw(); return;
+      }
+      zoom(e.deltaY>0?1.18:0.85, Z.total);
+    }, {passive:false});
+
+    var drag=null;
+    function down(x,y){
+      var r=box.getBoundingClientRect();
+      drag={ x:x, y:y, mode:((x-r.left)/r.width>AXIS?'price':'pan'),
+             off:Z.off, ys:Z.ys, w:r.width, h:r.height };
+      box.style.cursor = drag.mode==='price' ? 'ns-resize' : 'grabbing';
+    }
+    function move(x,y){
+      if(!drag) return;
+      if(drag.mode==='price'){
+        Z.ys = clamp(drag.ys * Math.pow(1.01, (drag.y-y)), 0.3, 6);
+      }else{
+        var n = Z.view || Z.total || 80;
+        var perBar = drag.w*0.86/n;                  // ความกว้างต่อแท่ง (พื้นที่กราฟ ~86%)
+        Z.off = clamp(Math.round(drag.off + (x-drag.x)/perBar), 0, Math.max(0,(Z.total||n)-n));
+      }
+      draw();
+    }
+    function up(){ drag=null; box.style.cursor=''; }
+
+    box.addEventListener('mousedown', function(e){ e.preventDefault(); down(e.clientX,e.clientY); });
+    window.addEventListener('mousemove', function(e){ if(drag) move(e.clientX,e.clientY); });
+    window.addEventListener('mouseup', up);
+    box.addEventListener('dblclick', function(){ Z.n=0; Z.off=0; Z.ys=1; draw(); });
+
+    // มือถือ
+    var pinch=null;
+    box.addEventListener('touchstart', function(e){
+      if(e.touches.length===2){
+        pinch={ d:Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                             e.touches[0].clientY-e.touches[1].clientY), n:(Z.n||Z.total||80) };
+        drag=null;
+      } else if(e.touches.length===1) down(e.touches[0].clientX, e.touches[0].clientY);
+    }, {passive:true});
+    box.addEventListener('touchmove', function(e){
+      if(pinch && e.touches.length===2){
+        e.preventDefault();
+        var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                         e.touches[0].clientY-e.touches[1].clientY);
+        Z.n = clamp(Math.round(pinch.n * (pinch.d/(d||1))), 12, Z.total||80); draw();
+      } else if(drag && e.touches.length===1){
+        e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, {passive:false});
+    box.addEventListener('touchend', function(){ pinch=null; up(); }, {passive:true});
   })();
 })();
 </script>
@@ -3142,12 +3235,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(R && R.state === 'found' && S.m > 0){
       var C = R.C, n = C.length;
       // กราฟใหญ่วาดแท่งทั้งหมด m แท่ง — map index ของ analyse (ชุดเดียวกัน) ตรงๆ
-      var CX = function(i){ return xL + (i + 0.5) * (xR - xL) / S.m; };
+      // index จาก analyse() เป็นของชุดเต็ม → ลบ i0 ให้ตรงกับช่วงที่ซูมอยู่
+      var i0 = S.i0 || 0;
+      var CX = function(i){ return xL + (i - i0 + 0.5) * (xR - xL) / S.m; };
+      var inX = function(i){ return i >= i0 && i < i0 + S.m; };
       var dir = R.sw.dir, dcol = dir < 0 ? DN : UP;
 
       // โซน OB
       if(R.ob && inView(R.ob.hi) && inView(R.ob.lo)){
-        var xo = CX(R.ob.i), yo1 = Y(R.ob.hi), yo2 = Y(R.ob.lo);
+        var xo = Math.max(xL, CX(R.ob.i)), yo1 = Y(R.ob.hi), yo2 = Y(R.ob.lo);
         g += '<rect x="'+xo.toFixed(1)+'" y="'+Math.min(yo1,yo2).toFixed(1)+'" width="'+(xR-xo).toFixed(1)
            + '" height="'+Math.max(2,Math.abs(yo2-yo1)).toFixed(1)+'" fill="'+dcol+'" opacity=".17"/>'
            + '<text x="'+(xo+5).toFixed(1)+'" y="'+(Math.min(yo1,yo2)+13).toFixed(1)+'" fill="'+dcol+'" font-size="11" font-weight="800">OB</text>';
@@ -3161,14 +3257,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       }
 
       // จุด SWEEP
-      if(inView(R.sw.ext) && R.sw.k < S.m){
+      if(inView(R.sw.ext) && inX(R.sw.k)){
         var xs = CX(R.sw.k), yss = Y(R.sw.ext);
         g += '<circle cx="'+xs.toFixed(1)+'" cy="'+yss.toFixed(1)+'" r="5" fill="'+GD+'"/>';
         SW = { x:xs, y:yss, dir:dir };        // วาดป้ายทีหลัง หลังจัดกองป้ายขวาเสร็จ
       }
 
       // CHoCH
-      if(R.recI >= 0 && R.recI < S.m && inView(C[R.recI][4])){
+      if(R.recI >= 0 && inX(R.recI) && inView(C[R.recI][4])){
         var xc = CX(R.recI), yc = Y(C[R.recI][4]);
         g += '<line x1="'+xc.toFixed(1)+'" y1="'+(yc-20).toFixed(1)+'" x2="'+xc.toFixed(1)+'" y2="'+(yc+20).toFixed(1)
            + '" stroke="'+AC+'" stroke-width="1.4" stroke-dasharray="3 3"/>'
@@ -3176,7 +3272,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       }
 
       // แท่ง displacement
-      if(R.disp >= 0 && R.disp < S.m){
+      if(R.disp >= 0 && inX(R.disp)){
         var xd = CX(R.disp), yd = Y(dir<0 ? C[R.disp][3] : C[R.disp][2]);
         g += '<text x="'+xd.toFixed(1)+'" y="'+(dir<0 ? (yd+16) : (yd-8)).toFixed(1)
            + '" fill="var(--ink)" font-size="10.5" font-weight="800" text-anchor="middle">DISP</text>';
