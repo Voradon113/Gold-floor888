@@ -107,6 +107,10 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
   background:rgba(232,183,63,.10);display:flex;align-items:center;padding:0 8px;
   font:700 10px var(--mono);color:var(--gold2);letter-spacing:1px}
 
+/* การ์ด MT5 (equity/ความเสี่ยง/ออเดอร์) — ซ่อนไว้เพราะย้ายไปเทรด Topstep แล้ว
+   ไม่ลบทิ้งเพราะการ์ดอื่นใช้หัวข้อ "พอร์ตจริง" เป็นจุดยึดตำแหน่ง
+   อยากให้กลับมา: ลบบรรทัด .mt5box ข้างล่างนี้ทิ้ง (หรือใส่ ?mt5show=1 ท้าย URL) */
+.mt5box{display:none}
 .pf{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center}
 @media(max-width:700px){.pf{grid-template-columns:1fr}}
 .big{font:700 34px var(--mono);line-height:1;color:var(--ink)}
@@ -292,7 +296,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
     </div>
   </div>
 
-  <div class="grid g2">
+  <div class="grid g2 mt5box">
     <div class="card">
       <h2>พอร์ตจริง · MT5 <span class="chip" id="accChip">—</span></h2>
       <div class="pf">
@@ -325,7 +329,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
     </div>
   </div>
 
-  <div class="grid"><div class="card">
+  <div class="grid mt5box"><div class="card">
     <h2>ออเดอร์ที่เปิดอยู่ <span class="chip" id="posChip">—</span></h2>
     <div class="pos" id="pos"></div>
   </div></div>
@@ -2640,5 +2644,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   setInterval(function(){ if(today()!==lastDay){ lastDay=today(); draw(); } },30000);
   setInterval(function(){ if(gurl()&&document.visibilityState==='visible') pull(); },120000);
 })();
+</script>
+<script>
+/* เปิดการ์ด MT5 กลับมาชั่วคราวด้วย ?mt5show=1 (ไม่ต้องแก้ไฟล์) */
+if(new URLSearchParams(location.search).get('mt5show')==='1')
+  Array.prototype.forEach.call(document.querySelectorAll('.mt5box'),function(e){ e.style.display=''; });
 </script></body>
 </html>
