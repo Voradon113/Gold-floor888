@@ -169,7 +169,14 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .basisinput button{padding:5px 12px;border-radius:7px;border:0;background:var(--accent);color:#fff;font:700 11px var(--mono);cursor:pointer}
 .basisinput button#gcClear{background:var(--track);color:var(--dim);padding:5px 9px}
 .basisinput button:hover{filter:brightness(1.1)}
-.sdxchart{width:100%;height:auto;display:block}
+/* กล่องกราฟยืดหดได้ — ลากมุมขวาล่าง (native resize ของเบราว์เซอร์) เหมือน TradingView
+   กราฟวาดใหม่ตามความสูงจริงเป็นพิกเซล → ตัวหนังสือไม่ยืด ไม่เบลอ */
+.sdxbox{resize:vertical;overflow:hidden;height:430px;min-height:240px;max-height:900px;
+  border-radius:12px;position:relative}
+.sdxbox::after{content:"⇕";position:absolute;right:6px;bottom:2px;font-size:11px;
+  color:var(--faint);pointer-events:none;opacity:.75}
+.sdxchart{width:100%;height:100%;display:block}
+@media(max-width:700px){.sdxbox{height:320px}}
 .sdxnote{margin-top:8px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.5}
 
 .zdist{display:flex;flex-direction:column;gap:7px}
@@ -263,7 +270,9 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 
   <div class="grid"><div class="card">
     <h2>กราฟ XAUUSD · โซนราคา (แปลง basis) <span class="chip" id="sdxBasis">basis —</span></h2>
-    <svg class="sdxchart" id="sdxChart" viewBox="0 0 760 344"></svg>
+    <div class="sdxbox" id="sdxBox" title="ลากมุมขวาล่างเพื่อขยาย/ย่อกราฟ">
+      <svg class="sdxchart" id="sdxChart" viewBox="0 0 760 344"></svg>
+    </div>
     <div class="sdxnote" id="sdxNote">เส้นระดับจาก JANIE (GC) แปลงเป็น XAUUSD ด้วย basis · เส้นราคา = XAUUSD สดตั้งแต่เปิดหน้า</div>
   </div></div>
 
@@ -737,7 +746,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       if(Array.isArray(row)){ lbl=String(row[0]); price=n(row[1]); } else { price=n(row); lbl='SD'; }
       if(price!=null) levels.push([price+add, lbl, 'var(--accent2)', 'sd']);
     });
-    var W=760,H=344,padT=14,padB=30,xL=46,xR=W-58;
+    /* ความสูงตามกล่องที่ผู้ใช้ลากขยาย (มุมขวาล่าง) — W คงที่ 760 แล้วสเกลด้วย viewBox
+       ทำให้ยิ่งลากสูง ยิ่งเห็นรายละเอียดราคาชัด โดยตัวหนังสือไม่ยืด */
+    var box=document.getElementById('sdxBox');
+    var boxH=box?box.clientHeight:0;
+    var W=760, H=Math.round(Math.max(240,Math.min(900, boxH||344)) * (760/(box?box.clientWidth||760:760)));
+    if(!isFinite(H)||H<240) H=344;
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    var padT=14,padB=30,xL=46,xR=W-58;
     var lo,hi;
     if(cd){                         // scale ตามแท่งเทียน (ราคาที่วิ่งจริง) + ดึงเฉพาะ level ที่อยู่ใกล้เข้ามา
       var cp=[]; cd.forEach(function(c){ var h=n(c[2]),l=n(c[3]); if(h!=null)cp.push(h); if(l!=null)cp.push(l); });
@@ -838,6 +854,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       + (basis!=null? ' · เส้นระดับ = JANIE(GC) + basis '+(basis>=0?'+':'−')+Math.abs(basis).toFixed(2) : ' · ⚠️ รอ basis');
   }
   setInterval(render, 2000); render();
+  /* ลากขยายกล่อง → วาดใหม่ทันที (ไม่ต้องรอรอบ 2 วิ) */
+  (function(){
+    var box=document.getElementById('sdxBox');
+    if(!box || typeof ResizeObserver==='undefined') return;
+    var t=null;
+    new ResizeObserver(function(){
+      clearTimeout(t); t=setTimeout(function(){ try{ render(); }catch(e){} }, 60);
+    }).observe(box);
+  })();
 })();
 </script>
 <script>
@@ -1860,7 +1885,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<div class="apstate" style="color:var(--dim)">⏳ ยังไม่มี setup</div>'
         +'<div class="apsub">ยังไม่มีการ<b>กวาด LQ</b> ใน 8 แท่งล่าสุด — <b>อยู่เฉยๆ คือกำไร</b></div>'
         +'<div class="apnote">ระบบเฝ้าดู: ราคาต้องแทงทะลุจุดสูง/ต่ำล่าสุด (ที่ SL รายย่อยกองอยู่) แล้ว<b>ปิดกลับเข้ามา</b> — ถึงจะเริ่มนับเป็น setup</div>'
-        +'</div><div>'+mini(R,420,196)+'</div></div>';
+        +'</div></div>';
       return;
     }
 
@@ -1893,7 +1918,6 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       +'<div class="apsub">ทิศ <b style="color:'+col+'">'+side+'</b> · '+sub+'</div>'
       +'<div class="apck">'+chk.map(function(c){ return '<div><span>'+(c[1]?"✅":"⬜")+'</span><span style="color:'+(c[1]?"var(--ink)":"var(--faint)")+'">'+c[0]+'</span></div>'; }).join("")+'</div>'
       +'</div><div>'
-      +mini(R,420,196)
       +'<div class="aplv">'
       +  '<div><small>โซน OB</small><b style="color:'+col+'">'+(R.ob?f2(R.ob.lo)+"–"+f2(R.ob.hi):"—")+'</b></div>'
       +  '<div><small>เข้า (กลางโซน OB)</small><b>'+f2(R.entry)+'</b></div>'
@@ -2982,17 +3006,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     ".pcfoot{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.7}";
   document.head.appendChild(css);
 
-  var g = document.createElement("div");
-  g.className = "grid";
-  g.innerHTML = '<div class="card"><h2>📊 POC · โซนคุ้มค่า (TPO) '
-    + '<span class="chip" id="pcChip">—</span></h2>'
-    + '<div id="pcBody" style="color:var(--dim);font-size:12px">รอแท่งเทียนจาก MT5…</div></div>';
-  var anchor = null;
-  Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"), function(h){
-    if(!anchor && h.textContent.indexOf("Basis") === 0) anchor = h.closest(".grid");
-  });
-  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g, anchor);
-  else document.querySelector(".wrap").appendChild(g);
+  /* ไม่สร้างการ์ดแล้ว — คำนวณอย่างเดียวแล้วส่งให้กราฟใหญ่วาด (window.__POCP)
+     อยากได้การ์ดแยกกลับมา: เอาโค้ดสร้าง card + insertBefore กลับมาใส่ตรงนี้ */
 
   function build(c){
     var lo = Infinity, hi = -Infinity;
@@ -3022,13 +3037,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   }
 
   function tick(){
-    var b = document.getElementById("pcBody"); if(!b) return;
     var M = (typeof MP !== "undefined") ? MP : null;
     var c = (M && Array.isArray(M.candles) && M.candles.length >= 20) ? M.candles : null;
-    if(!c){ b.textContent = "รอแท่งเทียนจาก MT5 (เปิด MT5 + EA ค้างไว้)"; return; }
-
-    var P = build(c); if(!P){ b.textContent = "คำนวณไม่ได้"; return; }
-    window.__POCP = P;                       // ให้กราฟใหญ่วาด POC/VA ทับได้
+    if(!c) return;
+    var P = build(c); if(!P) return;
+    window.__POCP = P;                       // ให้กราฟใหญ่วาด POC/VA ทับ
+    var b = document.getElementById("pcBody"); if(!b) return;   // ไม่มีการ์ดแล้ว → จบแค่คำนวณ
     var px = Number(M.bid);
     var hrs = Math.round((c[c.length-1][0] - c[0][0]) / 3600);
     document.getElementById("pcChip").textContent = "M15 · " + hrs + " ชม.ล่าสุด";
