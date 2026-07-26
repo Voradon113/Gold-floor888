@@ -3113,6 +3113,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var Y = S.Y, xL = S.xL, xR = S.xR;
     var inView = function(p){ return isFinite(p) && p >= S.lo && p <= S.hi; };
     var g = '';
+    /* ป้ายฝั่งขวาเก็บไว้ก่อน แล้วค่อยจัดตำแหน่งไม่ให้ทับกัน (ราคาใกล้กัน = ป้ายชนกัน) */
+    var RL = [], SW = null;
+    var addR = function(price, text, color){
+      if(!inView(price)) return;
+      RL.push({ y:Y(price), text:text, color:color });
+    };
 
     /* ── POC / Value Area (วาดก่อน = อยู่ชั้นล่างสุด) ── */
     if(P){
@@ -3128,7 +3134,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       if(inView(P.poc)){
         var yp = Y(P.poc);
         g += '<line x1="'+xL+'" y1="'+yp.toFixed(1)+'" x2="'+xR+'" y2="'+yp.toFixed(1)+'" stroke="'+GD+'" stroke-width="2" opacity=".95"/>';
-        g += '<text x="'+(xL+4)+'" y="'+(yp-5).toFixed(1)+'" fill="'+GD+'" font-size="11" font-weight="800">★ POC '+Math.round(P.poc)+'</text>';
+        addR(P.poc, '★ POC '+Math.round(P.poc), GD);      // ย้ายมาฝั่งขวา กัน MEAN ทับ
       }
     }
 
@@ -3150,17 +3156,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       // เส้นสภาพคล่องที่โดนกวาด
       if(inView(R.sw.lv)){
         var ys = Y(R.sw.lv);
-        g += '<line x1="'+xL+'" y1="'+ys.toFixed(1)+'" x2="'+xR+'" y2="'+ys.toFixed(1)+'" stroke="'+GD+'" stroke-width="1.4" stroke-dasharray="6 4"/>'
-           + '<text x="'+(xR-4)+'" y="'+(ys-5).toFixed(1)+'" fill="'+GD+'" font-size="11" font-weight="800" text-anchor="end">'
-           + (dir<0 ? 'BSL ' : 'SSL ') + Math.round(R.sw.lv) + (R.sw.eq ? ' ⚑EQ' : '') + '</text>';
+        g += '<line x1="'+xL+'" y1="'+ys.toFixed(1)+'" x2="'+xR+'" y2="'+ys.toFixed(1)+'" stroke="'+GD+'" stroke-width="1.4" stroke-dasharray="6 4"/>';
+        addR(R.sw.lv, (dir<0 ? 'BSL ' : 'SSL ') + Math.round(R.sw.lv) + (R.sw.eq ? ' ⚑EQ' : ''), GD);
       }
 
       // จุด SWEEP
       if(inView(R.sw.ext) && R.sw.k < S.m){
         var xs = CX(R.sw.k), yss = Y(R.sw.ext);
-        g += '<circle cx="'+xs.toFixed(1)+'" cy="'+yss.toFixed(1)+'" r="5" fill="'+GD+'"/>'
-           + '<text x="'+xs.toFixed(1)+'" y="'+(dir<0 ? (yss-9) : (yss+16)).toFixed(1)
-           + '" fill="'+GD+'" font-size="10.5" font-weight="800" text-anchor="middle">SWEEP</text>';
+        g += '<circle cx="'+xs.toFixed(1)+'" cy="'+yss.toFixed(1)+'" r="5" fill="'+GD+'"/>';
+        SW = { x:xs, y:yss, dir:dir };        // วาดป้ายทีหลัง หลังจัดกองป้ายขวาเสร็จ
       }
 
       // CHoCH
@@ -3183,11 +3187,46 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         [[R.entry,'เข้า','var(--ink)','5 4'], [R.inv,'SL',DN,'4 3'], [R.tp,'TP',UP,'4 3']].forEach(function(L){
           if(!inView(L[0])) return;
           var y = Y(L[0]);
-          g += '<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+L[2]+'" stroke-width="1.2" stroke-dasharray="'+L[3]+'" opacity=".9"/>'
-             + '<text x="'+(xR-4)+'" y="'+(y+13).toFixed(1)+'" fill="'+L[2]+'" font-size="10.5" font-weight="800" text-anchor="end">'
-             + esc(L[1]) + ' ' + Math.round(L[0]) + '</text>';
+          g += '<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+L[2]+'" stroke-width="1.2" stroke-dasharray="'+L[3]+'" opacity=".9"/>';
+          addR(L[0], esc(L[1]) + ' ' + Math.round(L[0]), L[2]);
         });
       }
+    }
+
+    /* ── จัดป้ายฝั่งขวาไม่ให้ทับกัน: เรียงตามราคา แล้วดันลงทีละ 13px
+          ถ้าล้นล่างก็ดันกลับขึ้น · ป้ายที่ถูกดันจะมีเส้นบางชี้กลับไปที่ราคาจริง ── */
+    if(RL.length){
+      var GAP = 13, TOP = S.padT + 9, BOT = S.H - S.padB - 3;
+      RL.forEach(function(o){ o.y0 = o.y; });
+      RL.sort(function(a,b){ return a.y - b.y; });
+      for(var i2 = 1; i2 < RL.length; i2++)
+        if(RL[i2].y - RL[i2-1].y < GAP) RL[i2].y = RL[i2-1].y + GAP;
+      var over = RL[RL.length-1].y - BOT;
+      if(over > 0) RL.forEach(function(o){ o.y -= over; });
+      RL.forEach(function(o){ o.y = Math.max(TOP, Math.min(BOT, o.y)); });
+
+      RL.forEach(function(o){
+        // เส้นชี้กลับไปราคาจริง เมื่อป้ายถูกดันไปไกลกว่า 3px
+        if(Math.abs(o.y - o.y0) > 3)
+          g += '<line x1="'+(xR-2)+'" y1="'+o.y0.toFixed(1)+'" x2="'+(xR-2)+'" y2="'+o.y.toFixed(1)
+             + '" stroke="'+o.color+'" stroke-width="0.8" opacity=".45"/>';
+        g += '<text x="'+(xR-5)+'" y="'+(o.y+3.5).toFixed(1)+'" fill="'+o.color
+           + '" font-size="10.5" font-weight="800" text-anchor="end"'
+           + ' style="paint-order:stroke;stroke:var(--card);stroke-width:3px">'+o.text+'</text>';
+      });
+    }
+
+    /* ป้าย SWEEP วาดท้ายสุด — ถ้าอยู่ในแนวเดียวกับกองป้ายขวา ให้หลบขึ้นเหนือกอง */
+    if(SW){
+      var sy = SW.dir < 0 ? (SW.y - 8) : (SW.y + 15);
+      if(SW.x > xR - 100 && RL.length){          // อยู่โซนป้ายขวา → เลี่ยงการทับ
+        var top = RL[0].y, bot = RL[RL.length-1].y;
+        if(sy > top - 13 && sy < bot + 13) sy = top - 14;
+        if(sy < S.padT + 9) sy = bot + 14;       // ชนขอบบน → ไปอยู่ใต้กองแทน
+      }
+      g += '<text x="'+(SW.x - 9).toFixed(1)+'" y="'+sy.toFixed(1)+'" fill="'+GD
+         + '" font-size="10.5" font-weight="800" text-anchor="end"'
+         + ' style="paint-order:stroke;stroke:var(--card);stroke-width:3px">SWEEP</text>';
     }
 
     if(!g) return;
