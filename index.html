@@ -828,6 +828,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       });
     });
     svg.innerHTML=s;
+    /* เปิดพิกัดให้ add-on วาดทับได้ (A+ structure / POC) — ไม่กระทบการวาดเดิม */
+    window.__SDX = { lo:lo, hi:hi, W:W, H:H, padT:padT, padB:padB, xL:xL, xR:xR,
+                     m:(cd?cd.length:0), Y:Y };
+    if(typeof window.__sdxOverlay === 'function'){ try{ window.__sdxOverlay(); }catch(e){} }
     document.getElementById('sdxNote').textContent =
       (cd? '🕯️ แท่งเทียน XAUUSD จริงจาก MT5 ('+cd.length+' แท่ง)'
          : 'เส้นน้ำเงิน = XAUUSD สดตั้งแต่เปิดหน้า ('+ticks.length+' จุด) · แท่งเทียนรอ EA ส่ง candles')
@@ -1848,6 +1852,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(!M||!M.candles||M.candles.length<25){ b.textContent="รอแท่งเทียนจาก MT5 (เปิด MT5 + EA ค้างไว้)"; return; }
     var R=analyse(M.candles);
     if(!R){ b.textContent="แท่งเทียนไม่พอ"; return; }
+    window.__APLUS = R;                      // ให้กราฟใหญ่วาดโครงสร้างทับได้
 
     if(R.state==="wait"){
       lastState="";
@@ -3023,6 +3028,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(!c){ b.textContent = "รอแท่งเทียนจาก MT5 (เปิด MT5 + EA ค้างไว้)"; return; }
 
     var P = build(c); if(!P){ b.textContent = "คำนวณไม่ได้"; return; }
+    window.__POCP = P;                       // ให้กราฟใหญ่วาด POC/VA ทับได้
     var px = Number(M.bid);
     var hrs = Math.round((c[c.length-1][0] - c[0][0]) / 3600);
     document.getElementById("pcChip").textContent = "M15 · " + hrs + " ชม.ล่าสุด";
@@ -3070,6 +3076,115 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       + '⚠️ คำนวณจาก <b>เวลา</b> (TPO) ไม่ใช่วอลุ่ม เพราะ MT5 ส่งมาแค่ OHLC — ทิศทางเดียวกับ Volume Profile แต่ไม่เท่ากันเป๊ะ</div>';
   }
   tick(); setInterval(tick, 5000);
+})();
+</script>
+<script>
+/* ===== 🖼️ ชั้นวาดทับกราฟใหญ่ — รวม A+ structure + POC ไว้ที่เดียว =====
+   วาดต่อจากกราฟเดิม (ไม่แก้โค้ดกราฟ) โดยใช้พิกัดจาก window.__SDX
+   แหล่งข้อมูล: window.__APLUS (จากการ์ด A+) · window.__POCP (จากการ์ด POC)
+   → กราฟเล็กในการ์ด A+ ยังอยู่เหมือนเดิม ตัวนี้แค่ขยายให้เห็นชัดบนกราฟใหญ่ */
+(function(){
+  var UP='var(--up)', DN='var(--down)', GD='var(--gold)', AC='var(--accent)';
+
+  function esc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  window.__sdxOverlay = function(){
+    var svg = document.getElementById('sdxChart'); if(!svg) return;
+    var S = window.__SDX; if(!S) return;
+    var old = svg.querySelector('#sdxOv'); if(old) old.remove();
+
+    var R = window.__APLUS, P = window.__POCP;
+    if(!R && !P) return;
+
+    var Y = S.Y, xL = S.xL, xR = S.xR;
+    var inView = function(p){ return isFinite(p) && p >= S.lo && p <= S.hi; };
+    var g = '';
+
+    /* ── POC / Value Area (วาดก่อน = อยู่ชั้นล่างสุด) ── */
+    if(P){
+      if(inView(P.vah) && inView(P.val)){
+        var yv1 = Y(P.vah), yv2 = Y(P.val);
+        g += '<rect x="'+xL+'" y="'+Math.min(yv1,yv2).toFixed(1)+'" width="'+(xR-xL)
+           + '" height="'+Math.abs(yv2-yv1).toFixed(1)+'" fill="'+AC+'" opacity=".07"/>';
+        g += '<line x1="'+xL+'" y1="'+yv1.toFixed(1)+'" x2="'+xR+'" y2="'+yv1.toFixed(1)+'" stroke="'+AC+'" stroke-width="0.9" stroke-dasharray="2 4" opacity=".65"/>';
+        g += '<line x1="'+xL+'" y1="'+yv2.toFixed(1)+'" x2="'+xR+'" y2="'+yv2.toFixed(1)+'" stroke="'+AC+'" stroke-width="0.9" stroke-dasharray="2 4" opacity=".65"/>';
+        g += '<text x="'+(xL+4)+'" y="'+(yv1-4).toFixed(1)+'" fill="'+AC+'" font-size="10" font-weight="700" opacity=".85">VAH</text>';
+        g += '<text x="'+(xL+4)+'" y="'+(yv2+11).toFixed(1)+'" fill="'+AC+'" font-size="10" font-weight="700" opacity=".85">VAL</text>';
+      }
+      if(inView(P.poc)){
+        var yp = Y(P.poc);
+        g += '<line x1="'+xL+'" y1="'+yp.toFixed(1)+'" x2="'+xR+'" y2="'+yp.toFixed(1)+'" stroke="'+GD+'" stroke-width="2" opacity=".95"/>';
+        g += '<text x="'+(xL+4)+'" y="'+(yp-5).toFixed(1)+'" fill="'+GD+'" font-size="11" font-weight="800">★ POC '+Math.round(P.poc)+'</text>';
+      }
+    }
+
+    /* ── A+ structure ── */
+    if(R && R.state === 'found' && S.m > 0){
+      var C = R.C, n = C.length;
+      // กราฟใหญ่วาดแท่งทั้งหมด m แท่ง — map index ของ analyse (ชุดเดียวกัน) ตรงๆ
+      var CX = function(i){ return xL + (i + 0.5) * (xR - xL) / S.m; };
+      var dir = R.sw.dir, dcol = dir < 0 ? DN : UP;
+
+      // โซน OB
+      if(R.ob && inView(R.ob.hi) && inView(R.ob.lo)){
+        var xo = CX(R.ob.i), yo1 = Y(R.ob.hi), yo2 = Y(R.ob.lo);
+        g += '<rect x="'+xo.toFixed(1)+'" y="'+Math.min(yo1,yo2).toFixed(1)+'" width="'+(xR-xo).toFixed(1)
+           + '" height="'+Math.max(2,Math.abs(yo2-yo1)).toFixed(1)+'" fill="'+dcol+'" opacity=".17"/>'
+           + '<text x="'+(xo+5).toFixed(1)+'" y="'+(Math.min(yo1,yo2)+13).toFixed(1)+'" fill="'+dcol+'" font-size="11" font-weight="800">OB</text>';
+      }
+
+      // เส้นสภาพคล่องที่โดนกวาด
+      if(inView(R.sw.lv)){
+        var ys = Y(R.sw.lv);
+        g += '<line x1="'+xL+'" y1="'+ys.toFixed(1)+'" x2="'+xR+'" y2="'+ys.toFixed(1)+'" stroke="'+GD+'" stroke-width="1.4" stroke-dasharray="6 4"/>'
+           + '<text x="'+(xR-4)+'" y="'+(ys-5).toFixed(1)+'" fill="'+GD+'" font-size="11" font-weight="800" text-anchor="end">'
+           + (dir<0 ? 'BSL ' : 'SSL ') + Math.round(R.sw.lv) + (R.sw.eq ? ' ⚑EQ' : '') + '</text>';
+      }
+
+      // จุด SWEEP
+      if(inView(R.sw.ext) && R.sw.k < S.m){
+        var xs = CX(R.sw.k), yss = Y(R.sw.ext);
+        g += '<circle cx="'+xs.toFixed(1)+'" cy="'+yss.toFixed(1)+'" r="5" fill="'+GD+'"/>'
+           + '<text x="'+xs.toFixed(1)+'" y="'+(dir<0 ? (yss-9) : (yss+16)).toFixed(1)
+           + '" fill="'+GD+'" font-size="10.5" font-weight="800" text-anchor="middle">SWEEP</text>';
+      }
+
+      // CHoCH
+      if(R.recI >= 0 && R.recI < S.m && inView(C[R.recI][4])){
+        var xc = CX(R.recI), yc = Y(C[R.recI][4]);
+        g += '<line x1="'+xc.toFixed(1)+'" y1="'+(yc-20).toFixed(1)+'" x2="'+xc.toFixed(1)+'" y2="'+(yc+20).toFixed(1)
+           + '" stroke="'+AC+'" stroke-width="1.4" stroke-dasharray="3 3"/>'
+           + '<text x="'+(xc+4).toFixed(1)+'" y="'+(yc-23).toFixed(1)+'" fill="'+AC+'" font-size="10.5" font-weight="800">CHoCH</text>';
+      }
+
+      // แท่ง displacement
+      if(R.disp >= 0 && R.disp < S.m){
+        var xd = CX(R.disp), yd = Y(dir<0 ? C[R.disp][3] : C[R.disp][2]);
+        g += '<text x="'+xd.toFixed(1)+'" y="'+(dir<0 ? (yd+16) : (yd-8)).toFixed(1)
+           + '" fill="var(--ink)" font-size="10.5" font-weight="800" text-anchor="middle">DISP</text>';
+      }
+
+      // แผนไม้: เข้า / SL / TP
+      if(!R.badSL){
+        [[R.entry,'เข้า','var(--ink)','5 4'], [R.inv,'SL',DN,'4 3'], [R.tp,'TP',UP,'4 3']].forEach(function(L){
+          if(!inView(L[0])) return;
+          var y = Y(L[0]);
+          g += '<line x1="'+xL+'" y1="'+y.toFixed(1)+'" x2="'+xR+'" y2="'+y.toFixed(1)+'" stroke="'+L[2]+'" stroke-width="1.2" stroke-dasharray="'+L[3]+'" opacity=".9"/>'
+             + '<text x="'+(xR-4)+'" y="'+(y+13).toFixed(1)+'" fill="'+L[2]+'" font-size="10.5" font-weight="800" text-anchor="end">'
+             + esc(L[1]) + ' ' + Math.round(L[0]) + '</text>';
+        });
+      }
+    }
+
+    if(!g) return;
+    var ns = 'http://www.w3.org/2000/svg';
+    var el = document.createElementNS(ns, 'g');
+    el.setAttribute('id', 'sdxOv');
+    el.innerHTML = g;
+    svg.appendChild(el);          // ต่อท้าย = วาดทับแท่งเทียน
+  };
+  // เผื่อกราฟวาดไปก่อนที่สคริปต์นี้จะโหลด
+  setTimeout(function(){ try{ window.__sdxOverlay(); }catch(e){} }, 1200);
 })();
 </script>
 <script>
