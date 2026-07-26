@@ -732,14 +732,20 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var cd=candlesOf(mp);
     /* ── ซูม/เลื่อน แบบ TradingView ── Z.n=จำนวนแท่งที่โชว์ · Z.off=เลื่อนถอยหลัง · Z.ys=ยืดสเกลราคา */
     var Z = window.__SDXZ || (window.__SDXZ = { n:0, off:0, ys:1 });
-    var i0 = 0;                                   // index แท่งแรกที่โชว์ (เทียบชุดเต็ม)
+    var i0 = 0, slots = 0, lead = 0;              // i0 = index ช่องแรกของหน้าต่าง (ติดลบได้)
     if(cd && cd.length){
       var tot = cd.length;
       var nv  = Z.n > 0 ? Math.max(12, Math.min(Z.n, tot)) : tot;
-      var off = Math.max(0, Math.min(tot - nv, Math.round(Z.off)));
+      /* ลากเลยขอบได้ทั้งสองข้าง (ที่ว่างข้างละครึ่งจอ) เหมือน TradingView
+         off > tot-nv = ลากถอยจนโผล่ที่ว่างซ้าย · off < 0 = ดันกราฟไปซ้าย เกิดที่ว่างขวา */
+      var pad = Math.round(nv * 0.5);
+      var off = Math.max(-pad, Math.min(tot - nv + pad, Math.round(Z.off)));
       Z.off = off; Z.total = tot; Z.view = nv;
-      i0 = tot - nv - off;
-      cd = cd.slice(i0, i0 + nv);
+      slots = nv;
+      i0 = tot - nv - off;                        // ช่องแรกของหน้าต่าง (อาจ < 0 หรือ > tot-nv)
+      var a = Math.max(0, i0), b = Math.min(tot, i0 + nv);
+      lead = a - i0;                              // จำนวนช่องว่างก่อนแท่งแรกที่มีจริง
+      cd = (b > a) ? cd.slice(a, b) : null;       // ลากไปไกลจนไม่เหลือแท่ง → ไม่มีอะไรวาด
     }
     if(xau==null && !cd){ svg.innerHTML=txt(350,160,'รอราคา XAUUSD จาก MT5','var(--faint)');
       document.getElementById('sdxNote').textContent='รอ EA (bid ของ '+((mp&&mp.symbol)||'XAUUSD')+')'; return; }
@@ -800,11 +806,11 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     s+='<line x1="'+xR+'" y1="'+padT+'" x2="'+xR+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="0.8" opacity=".5"/>';
     // แท่งเทียนจริง (ถ้ามี) หรือ เส้นราคาสด (fallback)
     if(cd){
-      var m=cd.length, cw=Math.max(1.5,(xR-xL)/m*0.62);
+      var m=cd.length, sl=slots||m, cw=Math.max(1.5,(xR-xL)/sl*0.62);
       for(var i=0;i<m;i++){
         var c=cd[i], o=n(c[1]),h=n(c[2]),l=n(c[3]),cl=n(c[4]);
         if(o==null||h==null||l==null||cl==null) continue;
-        var x=xL+(i+0.5)*(xR-xL)/m, up=cl>=o, col=up?'var(--up)':'var(--down)';
+        var x=xL+(lead+i+0.5)*(xR-xL)/sl, up=cl>=o, col=up?'var(--up)':'var(--down)';
         s+='<line x1="'+x.toFixed(1)+'" y1="'+Y(h).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+Y(l).toFixed(1)+'" stroke="'+col+'" stroke-width="1"/>';
         var yo=Y(o),yc0=Y(cl),top=Math.min(yo,yc0),bh=Math.max(1,Math.abs(yo-yc0));
         s+='<rect x="'+(x-cw/2).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+col+'" opacity=".92"/>';
@@ -814,7 +820,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       var tN = 6;
       for(var t=0; t<tN; t++){
         var ix = Math.round(t*(cd.length-1)/(tN-1));
-        var tx = xL+(ix+0.5)*(xR-xL)/cd.length;
+        var tx = xL+(lead+ix+0.5)*(xR-xL)/(slots||cd.length);
         var ts = Number(cd[ix][0]);
         if(!ts) continue;
         var hhmm = new Date(ts*1000).toISOString().slice(11,16);
@@ -865,7 +871,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     svg.innerHTML=s;
     /* เปิดพิกัดให้ add-on วาดทับได้ (A+ structure / POC) — ไม่กระทบการวาดเดิม */
     window.__SDX = { lo:lo, hi:hi, W:W, H:H, padT:padT, padB:padB, xL:xL, xR:xR,
-                     m:(cd?cd.length:0), i0:i0, Y:Y };
+                     m:(slots || (cd?cd.length:0)), i0:i0, Y:Y };
     if(typeof window.__sdxOverlay === 'function'){ try{ window.__sdxOverlay(); }catch(e){} }
     document.getElementById('sdxNote').textContent =
       (cd? '🕯️ แท่งเทียน XAUUSD จริงจาก MT5 ('+cd.length+' แท่ง)'
@@ -922,9 +928,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       if(drag.mode==='price'){
         Z.ys = clamp(drag.ys * Math.pow(1.01, (drag.y-y)), 0.3, 6);
       }else{
-        var n = Z.view || Z.total || 80;
+        var n = Z.view || Z.total || 80, tot = Z.total || n;
         var perBar = drag.w*0.86/n;                  // ความกว้างต่อแท่ง (พื้นที่กราฟ ~86%)
-        Z.off = clamp(Math.round(drag.off + (x-drag.x)/perBar), 0, Math.max(0,(Z.total||n)-n));
+        var pad = Math.round(n*0.5);                 // ลากเลยขอบได้ข้างละครึ่งจอ
+        Z.off = clamp(Math.round(drag.off + (x-drag.x)/perBar), -pad, tot-n+pad);
       }
       draw();
     }
