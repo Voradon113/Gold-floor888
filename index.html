@@ -3371,6 +3371,197 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 })();
 </script>
 <script>
+/* ===== 🏆 Consistency Tracker — กฎถอนเงินของ prop firm =====
+   กฎ: (1) เทรดอย่างน้อย N วัน (2) วันกำไรดีสุด ≤ P% ของกำไรรวม
+   คณิตศาสตร์ที่ใช้:
+     • ยอดรวมขั้นต่ำที่ทำให้ผ่านกฎ = วันดีสุด ÷ P
+     • เพดานของ "วันนี้" = (P/(1−P)) × กำไรรวมของวันอื่น
+       (ที่ P=40% → 2/3 เท่า · เกินนี้วันนี้จะกลายเป็นวันดีสุดที่แรงเกินกฎ)
+   เก็บข้อมูลใน localStorage เครื่องนี้เท่านั้น (ไม่ส่งออกไปไหน) */
+(function(){
+  var KEY = "tanu_consistency";
+  var css = document.createElement("style");
+  css.textContent =
+    ".cstat{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}"+
+    "@media(max-width:700px){.cstat{grid-template-columns:repeat(2,1fr)}}"+
+    ".cbox{padding:11px 13px;border-radius:12px;background:var(--card2);border:1px solid var(--line)}"+
+    ".cbox small{display:block;font:600 10.5px var(--mono);color:var(--faint);letter-spacing:.4px;margin-bottom:5px}"+
+    ".cbox b{font:800 19px var(--mono)}"+
+    ".cverdict{padding:13px 15px;border-radius:12px;font-size:13px;line-height:1.8;margin-bottom:13px}"+
+    ".cverdict.ok{background:rgba(47,209,141,.12);border:1px solid rgba(47,209,141,.5)}"+
+    ".cverdict.bad{background:rgba(240,96,74,.12);border:1px solid rgba(240,96,74,.5)}"+
+    ".cbar{height:10px;border-radius:99px;background:var(--track);overflow:hidden;margin:8px 0 4px}"+
+    ".cbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2fd18d,#e8b73f);transition:width .4s}"+
+    ".crow{display:grid;grid-template-columns:96px 1fr 26px;gap:9px;align-items:center;padding:7px 10px;"+
+      "border-radius:9px;background:var(--card2);margin-bottom:6px;font:700 12.5px var(--mono)}"+
+    ".crow.best{border:1px solid var(--gold)}"+
+    ".crow x{cursor:pointer;color:var(--faint);text-align:center;font-weight:700}"+
+    ".crow x:hover{color:var(--down)}"+
+    ".cadd{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}"+
+    ".cadd input{padding:7px 10px;border-radius:9px;border:1px solid var(--track);background:var(--bg);"+
+      "color:var(--ink);font:600 12.5px var(--mono)}"+
+    ".cadd input.d{width:142px} .cadd input.v{width:118px}"+
+    ".cadd button{padding:7px 14px;border-radius:9px;border:0;background:var(--accent);color:#fff;"+
+      "font:700 12px var(--mono);cursor:pointer}"+
+    ".cset{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font:600 11px var(--mono);color:var(--faint);align-items:center}"+
+    ".cset input{width:66px;padding:4px 7px;border-radius:7px;border:1px solid var(--track);"+
+      "background:var(--bg);color:var(--ink);font:600 11px var(--mono)}"+
+    ".cfoot{margin-top:12px;font-size:11.5px;color:var(--faint);line-height:1.75}";
+  document.head.appendChild(css);
+
+  var g = document.createElement("div");
+  g.className = "grid";
+  g.innerHTML = '<div class="card"><h2>🏆 Consistency · กฎถอนเงิน '
+    + '<span class="chip" id="csChip">—</span></h2><div id="csBody"></div></div>';
+  var anchor = null;
+  Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"), function(h){
+    if(!anchor && h.textContent.indexOf("PROP GATE") >= 0) anchor = h.closest(".grid");
+  });
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g, anchor);
+  else document.querySelector(".wrap").appendChild(g);
+
+  function load(){
+    try{ var s = JSON.parse(localStorage.getItem(KEY) || "null");
+         if(s && Array.isArray(s.days)) return s; }catch(e){}
+    return { days:[], cap:6000, pct:40, minDays:3 };
+  }
+  function save(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){} }
+  var S = load();
+
+  function money(v){
+    return (v<0?"−$":"$") + Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function thDate(iso){
+    var d = new Date(iso+"T00:00:00");
+    if(isNaN(d)) return iso;
+    return d.toLocaleDateString("th-TH",{day:"numeric",month:"short"});
+  }
+
+  function render(){
+    var b = document.getElementById("csBody"); if(!b) return;
+    var P = Math.max(1, Math.min(99, Number(S.pct)||40)) / 100;
+    var CAP = Number(S.cap) || 6000;
+    var MIN = Math.max(1, Number(S.minDays) || 3);
+
+    var days = S.days.slice().sort(function(a,c){ return c.d.localeCompare(a.d); });
+    var total = 0, best = 0, bestD = null;
+    days.forEach(function(x){
+      var v = Number(x.v) || 0; total += v;
+      if(v > best){ best = v; bestD = x.d; }
+    });
+    var pctBest = total > 0 ? (best/total*100) : 0;
+    var need    = best > 0 ? (best/P) : 0;          // ยอดรวมขั้นต่ำที่ทำให้ผ่านกฎ
+    var gapRule = Math.max(0, need - total);
+    var gapCap  = Math.max(0, CAP - total);
+    var okDays  = days.length >= MIN;
+    var okPct   = total > 0 && best <= P*total;
+    var pass    = okDays && okPct && total > 0;
+
+    // เพดานของวันนี้: (P/(1−P)) × กำไรรวมของ "วันอื่น"  (วันนี้ = รายการวันที่ล่าสุดที่เป็นวันนี้)
+    var today = new Date().toLocaleDateString("en-CA");
+    var todayV = 0;
+    days.forEach(function(x){ if(x.d === today) todayV += Number(x.v)||0; });
+    var others = total - todayV;
+    var capToday = others > 0 ? (P/(1-P))*others : 0;
+    var roomToday = capToday - todayV;
+
+    document.getElementById("csChip").textContent = pass ? "ผ่านกฎแล้ว ✓" : "ยังไม่ผ่าน";
+
+    var h = '<div class="cstat">'
+      + '<div class="cbox"><small>กำไรรวม</small><b style="color:'+(total>=0?"var(--up)":"var(--down)")+'">'+money(total)+'</b></div>'
+      + '<div class="cbox"><small>วันดีที่สุด</small><b style="color:var(--gold)">'+money(best)+'</b></div>'
+      + '<div class="cbox"><small>% ของรวม</small><b style="color:'+(okPct?"var(--up)":"var(--down)")+'">'
+        + (total>0? pctBest.toFixed(0)+"%" : "—") + '</b></div>'
+      + '<div class="cbox"><small>วันที่เทรด</small><b style="color:'+(okDays?"var(--up)":"var(--down)")+'">'
+        + days.length + ' / ' + MIN + '</b></div></div>';
+
+    if(!days.length){
+      h += '<div class="cverdict bad">ยังไม่มีข้อมูล — กรอกกำไร/ขาดทุน<b>จบวัน</b>ของแต่ละวันด้านล่าง แล้วระบบจะคำนวณให้ทันที</div>';
+    } else if(pass){
+      h += '<div class="cverdict ok">✅ <b>ผ่านกฎแล้ว — ถอนได้</b><br>'
+        + 'วันดีสุด '+money(best)+' = '+pctBest.toFixed(0)+'% ของรวม (เพดาน '+(P*100).toFixed(0)+'%)<br>'
+        + (gapCap>0 ? 'ถ้าอยากถอนเต็มเพดาน '+money(CAP)+' → ทำอีก <b>'+money(gapCap)+'</b>' : '🎉 ถึงเพดานถอนแล้ว')
+        + '</div>';
+    } else {
+      h += '<div class="cverdict bad">🔴 <b>ยังถอนไม่ได้</b><br>'
+        + (!okDays ? '• เทรดครบ '+days.length+'/'+MIN+' วัน — ยังขาด '+(MIN-days.length)+' วัน<br>' : '')
+        + (!okPct  ? '• วันดีสุดคิดเป็น <b>'+pctBest.toFixed(0)+'%</b> ของรวม (เกิน '+(P*100).toFixed(0)+'%)<br>'
+                     + '&nbsp;&nbsp;ต้องมีกำไรรวมอีก <b>'+money(gapRule)+'</b> (รวมเป็น '+money(need)+')' : '')
+        + '</div>';
+    }
+
+    // ความคืบหน้าถึงเพดานถอน
+    var prog = CAP>0 ? Math.max(0, Math.min(100, total/CAP*100)) : 0;
+    h += '<div style="font:600 11.5px var(--mono);color:var(--dim)">ความคืบหน้าถึงเพดานถอน '+money(CAP)+'</div>'
+      + '<div class="cbar"><i style="width:'+prog.toFixed(1)+'%"></i></div>'
+      + '<div style="font:700 11.5px var(--mono);color:var(--faint)">'+prog.toFixed(0)+'% · เหลืออีก '+money(gapCap)+'</div>';
+
+    // เพดานวันนี้
+    if(others > 0){
+      var warn = roomToday <= 0;
+      h += '<div class="cverdict '+(warn?"bad":"ok")+'" style="margin-top:13px">'
+        + (warn ? '⛔ <b>วันนี้ได้เกินเพดานแล้ว</b> ('+money(todayV)+' > '+money(capToday)+')<br>'
+                  + 'ยิ่งได้เพิ่มวันนี้ ยิ่งต้องหากำไรวันอื่นมาเจือจางมากขึ้น'
+                : '⛔ <b>เพดานวันนี้: '+money(capToday)+'</b>'
+                  + (todayV>0 ? ' · วันนี้ได้แล้ว '+money(todayV)+' → เหลืออีก <b>'+money(roomToday)+'</b>' : '')
+                  + '<br>เกินนี้วันนี้จะกลายเป็น "วันดีสุด" ที่แรงเกินกฎ '+(P*100).toFixed(0)+'%')
+        + '</div>';
+    }
+
+    // ฟอร์มเพิ่มวัน
+    h += '<div class="cadd">'
+      + '<input class="d" type="date" id="csD" value="'+today+'">'
+      + '<input class="v" type="number" step="0.01" id="csV" placeholder="กำไร/ขาดทุน">'
+      + '<button id="csAdd">+ บันทึกวัน</button></div>';
+
+    // รายการวัน
+    if(days.length){
+      h += days.map(function(x, i){
+        var v = Number(x.v)||0;
+        var isBest = (x.d===bestD && v===best && v>0);
+        return '<div class="crow'+(isBest?' best':'')+'">'
+          + '<span style="color:var(--dim)">'+thDate(x.d)+(isBest?' ★':'')+'</span>'
+          + '<span style="color:'+(v>=0?"var(--up)":"var(--down)")+'">'+money(v)+'</span>'
+          + '<x data-d="'+x.d+'" data-i="'+i+'">✕</x></div>';
+      }).join('');
+    }
+
+    h += '<div class="cset">⚙️ เพดานถอน <input type="number" id="csCap" value="'+CAP+'">'
+      + ' · กฎ % <input type="number" id="csPct" value="'+(P*100)+'">'
+      + ' · ขั้นต่ำ (วัน) <input type="number" id="csMin" value="'+MIN+'"></div>';
+
+    h += '<div class="cfoot">สูตร: <b>ยอดรวมขั้นต่ำ = วันดีสุด ÷ '+(P*100).toFixed(0)+'%</b> · '
+      + '<b>เพดานวันนี้ = '+(P*100).toFixed(0)+'/'+((1-P)*100).toFixed(0)+' × กำไรวันอื่น</b><br>'
+      + '⚠️ วันขาดทุนเจ็บสองต่อ: ลดกำไรรวม → เปอร์เซ็นต์วันดีสุดพุ่งขึ้นทันที<br>'
+      + '💾 เก็บในเครื่องนี้เท่านั้น · ตรวจกฎจริงกับ prop firm ของคุณอีกครั้ง (แต่ละเจ้าไม่เหมือนกัน)</div>';
+
+    b.innerHTML = h;
+
+    document.getElementById("csAdd").onclick = function(){
+      var d = document.getElementById("csD").value;
+      var v = parseFloat(document.getElementById("csV").value);
+      if(!d || !isFinite(v)) return;
+      var hit = false;
+      S.days.forEach(function(x){ if(x.d===d){ x.v = v; hit = true; } });   // วันเดิม = แก้ทับ
+      if(!hit) S.days.push({d:d, v:v});
+      save(S); render();
+    };
+    Array.prototype.forEach.call(b.querySelectorAll(".crow x"), function(el){
+      el.onclick = function(){
+        var d = this.getAttribute("data-d");
+        S.days = S.days.filter(function(x){ return x.d !== d; });
+        save(S); render();
+      };
+    });
+    [["csCap","cap"],["csPct","pct"],["csMin","minDays"]].forEach(function(p){
+      var el = document.getElementById(p[0]);
+      if(el) el.onchange = function(){ S[p[1]] = parseFloat(this.value); save(S); render(); };
+    });
+  }
+  render();
+})();
+</script>
+<script>
 /* เปิดการ์ด MT5 กลับมาชั่วคราวด้วย ?mt5show=1 (ไม่ต้องแก้ไฟล์) */
 if(new URLSearchParams(location.search).get('mt5show')==='1')
   Array.prototype.forEach.call(document.querySelectorAll('.mt5box'),function(e){ e.style.display=''; });
