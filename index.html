@@ -2534,7 +2534,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     return C[0][1]; }
   function sdCalc(px,C){
     /* --- RV: วัดจากแท่งเทียนจริง --- */
-    var r=[],i; for(i=1;i<C.length;i++) if(C[i-1][4]>0) r.push(Math.log(C[i][4]/C[i-1][4]));
+    var r=[],i;
+    for(i=1;i<C.length;i++){
+      if(C[i-1][4]>0 && (C[i][0]-C[i-1][0])===900) r.push(Math.log(C[i][4]/C[i-1][4]));
+    }
     var mu=r.reduce(function(x,y){return x+y;},0)/r.length;
     var vv=r.reduce(function(x,y){return x+(y-mu)*(y-mu);},0)/(r.length-1);
     var rv=Math.sqrt(vv)*Math.sqrt(96)*C[C.length-1][4];
@@ -2603,10 +2606,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var sig=up.concat(dn).map(function(z){return z.p.toFixed(1)+z.l;}).join('|')+'|'+N+'|'+SL+'|'+S.warn+'|'+sd1.toFixed(1);
     if(sig!==SIG){
       SIG=sig; ROWS=[];
-      var H='<div class="zchips"><span class="zchip">ATR M15 '+nf(atr)+'</span>'
-        +'<span class="zchip'+(S.warn?' warn':'')+'">'+S.src+'</span>'
-        +'<span class="zchip">ใช้ 1SD ±'+nf(sd1)+' · RV ±'+nf(S.rv)+' · IV '+(isFinite(S.iv)?'±'+nf(S.iv):'—')+'</span>'
-        +'<span class="zchip">ไม้ '+N+' MGC</span><span class="zchip">SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
+      var H='<div class="zchips">'
+        +'<span class="zchip'+(S.warn?' warn':'')+'">กรอบวันนี้ ±'+nf(sd1)+'</span>'
+        +'<span class="zchip">'+N+' MGC · SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
         +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span></div><div class="zlad">';
       function row(z,dir){
         var sl=dir>0?z.p+SL:z.p-SL, tp=dir>0?z.p-TP:z.p+TP;
