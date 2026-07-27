@@ -1786,16 +1786,13 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     ".apnote{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:12px;line-height:1.65;color:var(--dim)}";
   document.head.appendChild(st);
 
-  var g=document.createElement("div"); g.className="grid";
-  g.innerHTML='<div class="card"><h2>🎯 A+ SETUP · กวาด LQ → OB <span class="chip" id="apChip">M15 · MT5 สด</span> <span class="chip" id="apSnd" style="cursor:pointer">🔕 เปิดเสียง</span></h2><div id="apBody" style="color:var(--dim);font-size:12px">รอแท่งเทียนจาก MT5…</div></div>';
-  var anchor=null;
-  Array.prototype.forEach.call(document.querySelectorAll(".wrap > .grid h2"),function(h){
-    if(!anchor && h.textContent.indexOf("พอร์ตจริง")===0) anchor=h.closest(".grid");
-  });
-  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g,anchor); else document.querySelector(".wrap").appendChild(g);
+  /* ไม่สร้างการ์ดแล้ว — คำนวณอย่างเดียวแล้วส่งให้กราฟใหญ่วาดโครงสร้าง (window.__APLUS)
+     เส้น BSL/SWEEP/CHoCH/OB/เข้า/SL/TP ยังขึ้นบนกราฟครบเหมือนเดิม
+     อยากได้การ์ดกลับมา: เอาโค้ดสร้าง card + insertBefore กลับมาใส่ตรงนี้ */
 
   var UP="#2fd18d", DN="#f0604a", GD="#e8b73f", sound=false, lastState="";
-  document.getElementById("apSnd").onclick=function(){ sound=!sound; this.textContent = sound?"🔔 เสียงเปิด":"🔕 เปิดเสียง"; if(sound) beep(); };
+  var apSndEl=document.getElementById("apSnd");   // ไม่มีการ์ดแล้ว → อาจเป็น null
+  if(apSndEl) apSndEl.onclick=function(){ sound=!sound; this.textContent = sound?"🔔 เสียงเปิด":"🔕 เปิดเสียง"; if(sound) beep(); };
   function beep(){
     try{ var a=new (window.AudioContext||window.webkitAudioContext)();
       [0,0.18,0.36].forEach(function(d){ var o=a.createOscillator(), gg=a.createGain();
@@ -1972,12 +1969,13 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   }
 
   function tick(){
-    var b=document.getElementById("apBody"); if(!b) return;
     var M=(typeof MP!=="undefined")?MP:null;
-    if(!M||!M.candles||M.candles.length<25){ b.textContent="รอแท่งเทียนจาก MT5 (เปิด MT5 + EA ค้างไว้)"; return; }
+    var b=document.getElementById("apBody");          // ไม่มีการ์ดแล้ว → b = null (คำนวณต่อได้)
+    if(!M||!M.candles||M.candles.length<25){ if(b) b.textContent="รอแท่งเทียนจาก MT5 (เปิด MT5 + EA ค้างไว้)"; return; }
     var R=analyse(M.candles);
-    if(!R){ b.textContent="แท่งเทียนไม่พอ"; return; }
-    window.__APLUS = R;                      // ให้กราฟใหญ่วาดโครงสร้างทับได้
+    if(!R){ if(b) b.textContent="แท่งเทียนไม่พอ"; return; }
+    window.__APLUS = R;                      // ให้กราฟใหญ่วาดโครงสร้างทับ (สำคัญ: ต้องอยู่ก่อน guard)
+    if(!b) return;                           // เอาการ์ดออกแล้ว — จบแค่คำนวณ
 
     if(R.state==="wait"){
       lastState="";
@@ -3042,13 +3040,15 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 (function(){
   var css = document.createElement("style");
   css.textContent =
-    ".idwrap{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}"+
+    ".idwrap{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start}"+
     "@media(max-width:640px){.idwrap{grid-template-columns:1fr}}"+
-    ".idbias{font:800 40px/1 var(--mono);letter-spacing:-1px;min-width:92px}"+
-    ".idlbl{font:700 12px var(--mono);color:var(--dim);margin-top:5px}"+
-    ".idtxt{font-size:12.5px;line-height:1.75;color:var(--ink)}"+
-    ".idplan{margin-top:11px;padding:11px 13px;border-radius:11px;background:var(--card2);"+
-      "border:1px solid var(--line);font-size:12.5px;line-height:1.7}"+
+    ".idbias{font:800 62px/1 var(--mono);letter-spacing:-2px;min-width:118px}"+
+    ".idlbl{font:700 14px var(--mono);color:var(--dim);margin-top:7px}"+
+    ".idtxt{font-size:14px;line-height:1.8;color:var(--ink)}"+
+    ".idplan{margin-top:13px;padding:14px 16px;border-radius:12px;"+
+      "background:linear-gradient(135deg,var(--accentSoft),var(--card2) 60%);"+
+      "border:1px solid var(--accent);font:600 14.5px/1.75 var(--sans,inherit)}"+
+    ".idplan b{color:var(--ink)}"+
     ".idfoot{margin-top:11px;font-size:11.5px;color:var(--faint);line-height:1.7}"+
     ".idstale{margin-top:10px;padding:10px 13px;border-radius:11px;font:700 12px var(--mono);"+
       "background:rgba(232,183,63,.13);border:1px solid rgba(232,183,63,.5);color:var(--gold2)}";
