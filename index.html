@@ -3428,6 +3428,45 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   function save(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){} }
   var S = load();
 
+  /* ── พกข้อมูลไปเครื่องอื่น (ไม่ต้องมีเซิร์ฟเวอร์) ──
+     เข้ารหัสเป็น base64 ใส่ท้าย URL หลัง #cs=  → เปิดลิงก์ที่เครื่องไหนก็โหลดเข้าเครื่องนั้น */
+  function enc(o){
+    try{ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/,""); }
+    catch(e){ return ""; }
+  }
+  function dec(s){
+    try{ return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,"+").replace(/_/g,"/"))))); }
+    catch(e){ return null; }
+  }
+  function mergeIn(o){                      // วันเดียวกัน = ของที่นำเข้าทับของเดิม
+    if(!o || !Array.isArray(o.days)) return false;
+    var map = {};
+    S.days.forEach(function(x){ map[x.d] = x.v; });
+    o.days.forEach(function(x){ if(x && x.d) map[x.d] = Number(x.v)||0; });
+    S.days = Object.keys(map).sort().map(function(d){ return {d:d, v:map[d]}; });
+    if(isFinite(o.cap))     S.cap = o.cap;
+    if(isFinite(o.pct))     S.pct = o.pct;
+    if(isFinite(o.minDays)) S.minDays = o.minDays;
+    save(S); return true;
+  }
+  function copy(txt, okMsg){
+    var done = function(){ alert(okMsg); };
+    if(navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(done, function(){ prompt("คัดลอกข้อความนี้:", txt); });
+    else prompt("คัดลอกข้อความนี้:", txt);
+  }
+  // เปิดหน้าด้วยลิงก์ที่มีข้อมูล → นำเข้าอัตโนมัติ (ไม่ใช้ alert เพราะบล็อกการโหลดหน้า)
+  var imported = 0;
+  (function(){
+    var m = (location.hash||"").match(/[#&]cs=([^&]+)/);
+    if(!m) return;
+    var o = dec(m[1]);
+    if(o && mergeIn(o)){
+      imported = S.days.length;
+      try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    }
+  })();
+
   function money(v){
     return (v<0?"−$":"$") + Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   }
@@ -3467,7 +3506,13 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 
     document.getElementById("csChip").textContent = pass ? "ผ่านกฎแล้ว ✓" : "ยังไม่ผ่าน";
 
-    var h = '<div class="cstat">'
+    var h = '';
+    if(imported){
+      h += '<div class="cverdict ok" style="margin-bottom:13px">📥 <b>นำเข้าข้อมูลจากลิงก์แล้ว</b> — รวม '
+         + imported + ' วัน (บันทึกลงเครื่องนี้เรียบร้อย)</div>';
+      imported = 0;                       // โชว์ครั้งเดียว
+    }
+    h += '<div class="cstat">'
       + '<div class="cbox"><small>กำไรรวม</small><b style="color:'+(total>=0?"var(--up)":"var(--down)")+'">'+money(total)+'</b></div>'
       + '<div class="cbox"><small>วันดีที่สุด</small><b style="color:var(--gold)">'+money(best)+'</b></div>'
       + '<div class="cbox"><small>% ของรวม</small><b style="color:'+(okPct?"var(--up)":"var(--down)")+'">'
@@ -3526,6 +3571,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       }).join('');
     }
 
+    h += '<div class="cadd" style="margin-top:14px">'
+      + '<button id="csLink" style="background:var(--card2);color:var(--ink);border:1px solid var(--line)">🔗 ลิงก์พกพา</button>'
+      + '<button id="csCopy" style="background:var(--card2);color:var(--ink);border:1px solid var(--line)">📋 คัดลอกข้อมูล</button>'
+      + '<button id="csPaste" style="background:var(--card2);color:var(--ink);border:1px solid var(--line)">📥 วางข้อมูล</button>'
+      + '</div>';
+
     h += '<div class="cset">⚙️ เพดานถอน <input type="number" id="csCap" value="'+CAP+'">'
       + ' · กฎ % <input type="number" id="csPct" value="'+(P*100)+'">'
       + ' · ขั้นต่ำ (วัน) <input type="number" id="csMin" value="'+MIN+'"></div>';
@@ -3533,7 +3584,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     h += '<div class="cfoot">สูตร: <b>ยอดรวมขั้นต่ำ = วันดีสุด ÷ '+(P*100).toFixed(0)+'%</b> · '
       + '<b>เพดานวันนี้ = '+(P*100).toFixed(0)+'/'+((1-P)*100).toFixed(0)+' × กำไรวันอื่น</b><br>'
       + '⚠️ วันขาดทุนเจ็บสองต่อ: ลดกำไรรวม → เปอร์เซ็นต์วันดีสุดพุ่งขึ้นทันที<br>'
-      + '💾 เก็บในเครื่องนี้เท่านั้น · ตรวจกฎจริงกับ prop firm ของคุณอีกครั้ง (แต่ละเจ้าไม่เหมือนกัน)</div>';
+      + '💾 เก็บในเครื่องนี้ · จะพกไปเครื่องอื่น กด <b>🔗 ลิงก์พกพา</b> แล้วเปิดลิงก์นั้นที่เครื่องปลายทาง '
+      + '(หรือ <b>คัดลอกข้อมูล</b> เก็บใน Notes/LINE แล้ว <b>วางข้อมูล</b> ทีหลัง)<br>'
+      + '⚠️ ตรวจกฎจริงกับ prop firm ของคุณอีกครั้ง — แต่ละเจ้าไม่เหมือนกัน (บางเจ้า 30% บางเจ้า 50%)</div>';
 
     b.innerHTML = h;
 
@@ -3557,6 +3610,23 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       var el = document.getElementById(p[0]);
       if(el) el.onchange = function(){ S[p[1]] = parseFloat(this.value); save(S); render(); };
     });
+
+    // ── พกไปเครื่องอื่น
+    document.getElementById("csLink").onclick = function(){
+      var url = location.origin + location.pathname + "#cs=" + enc(S);
+      copy(url, "คัดลอกลิงก์แล้ว ✓\n\nเปิดลิงก์นี้บนมือถือ/เครื่องอื่น แล้วข้อมูลจะเข้าไปเองทันที\n(ส่งเข้า LINE ตัวเองได้เลย)");
+    };
+    document.getElementById("csCopy").onclick = function(){
+      copy(JSON.stringify(S), "คัดลอกข้อมูลแล้ว ✓\n\nเก็บไว้ใน Notes/LINE ได้ · กู้คืนด้วยปุ่ม “วางข้อมูล”");
+    };
+    document.getElementById("csPaste").onclick = function(){
+      var t = prompt("วางข้อมูลที่คัดลอกไว้ (JSON หรือลิงก์พกพา):");
+      if(!t) return;
+      var m = t.match(/[#&]cs=([^&\s]+)/);
+      var o = m ? dec(m[1]) : (function(){ try{ return JSON.parse(t); }catch(e){ return null; } })();
+      if(mergeIn(o)){ render(); alert("นำเข้าแล้ว ✓ รวมทั้งหมด " + S.days.length + " วัน"); }
+      else alert("อ่านข้อมูลไม่ออก — ต้องเป็น JSON หรือลิงก์ที่ได้จากปุ่ม “ลิงก์พกพา”");
+    };
   }
   render();
 })();
