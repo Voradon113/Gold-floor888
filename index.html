@@ -3092,14 +3092,17 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       + '<div class="idbias" style="color:' + col + '">' + (isFinite(bias) ? (bias>0?'+':'') + bias : '—') + '</div>'
       + '<div class="idlbl">' + (iv.biasLabel || '') + '</div></div>'
       + '<div><div class="idtxt">' + (iv.planBias || '') + '</div>'
-      + (iv.planText ? '<div class="idplan">🎯 <b>แผน:</b> ' + iv.planText + '</div>' : '')
+      /* ไม่แสดง iv.planText (แผน if-then ของ JANIE) โดยตั้งใจ — ผู้ใช้ประเมินแล้วว่า
+         "ผิดมากกว่าถูก" · การ์ดนี้เหลือเฉพาะสิ่งที่ JANIE "อ่านเห็น" จากภาพ
+         (bias, call/put นำ, Vol Chg, IV, Future Chg) ไม่มีคำทำนายทิศทาง */
       + '</div></div>';
 
     var px = Number(iv.priceGC), mn = Number(iv.mean);
     html += '<div class="idfoot">'
       + (isFinite(px) ? 'GC ตอนวิเคราะห์ <b>' + px.toLocaleString() + '</b>' : '')
       + (isFinite(mn) ? ' · Mean <b>' + mn.toLocaleString() + '</b>' : '')
-      + '<br>ตัวนี้คือของ <b>intraday</b> (JANIE อ่านภาพ Intraday Volume/IV สดๆ) — ต่างจากการ์ด OI ที่ CME ออกวันละครั้ง</div>';
+      + '<br>ตัวนี้คือของ <b>intraday</b> (JANIE อ่านภาพ Intraday Volume/IV สดๆ) — ต่างจากการ์ด OI ที่ CME ออกวันละครั้ง'
+      + '<br>📌 แสดงเฉพาะ<b>สิ่งที่อ่านเห็นจากภาพ</b> — ตัด<b>แผน if-then</b> ของ JANIE ออกแล้ว (ประเมินว่าผิดมากกว่าถูก) · ทิศทางให้ตาคุณตัดสิน</div>';
 
     if(mins > 180)
       html += '<div class="idstale">⚠️ ภาพเก่าเกิน ' + Math.round(mins/60) + ' ชม. — ส่ง QuikStrike '
