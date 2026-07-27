@@ -2533,14 +2533,32 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     for(var i=0;i<C.length;i++) if(C[i][0]>=d0) return C[i][1];
     return C[0][1]; }
   function sdCalc(px,C){
-    var iE=document.getElementById('sdIV'), dE=document.getElementById('sdDTE');
-    var iv=iE?parseFloat(iE.value):NaN, dte=dE?parseFloat(dE.value):NaN;
-    if(isFinite(iv)&&iv>0&&isFinite(dte)&&dte>0)
-      return {v:px*(iv/100)*Math.sqrt(dte/365), src:'SD จาก IV ออปชั่น '+iv+'%', ok:true};
+    /* --- RV: วัดจากแท่งเทียนจริง --- */
     var r=[],i; for(i=1;i<C.length;i++) if(C[i-1][4]>0) r.push(Math.log(C[i][4]/C[i-1][4]));
     var mu=r.reduce(function(x,y){return x+y;},0)/r.length;
     var vv=r.reduce(function(x,y){return x+(y-mu)*(y-mu);},0)/(r.length-1);
-    return {v:Math.sqrt(vv)*Math.sqrt(96)*C[C.length-1][4], src:'SD จาก RV 20 ชม. — ยังไม่ได้กรอก IV', ok:false};
+    var rv=Math.sqrt(vv)*Math.sqrt(96)*C[C.length-1][4];
+
+    /* --- IV: จากออปชั่น (ถ้ากรอก) --- */
+    var iE=document.getElementById('sdIV'), dE=document.getElementById('sdDTE');
+    var iv=iE?parseFloat(iE.value):NaN, dte=dE?parseFloat(dE.value):NaN;
+    var ivsd=NaN, shortDte=false;
+    if(isFinite(iv)&&iv>0&&isFinite(dte)&&dte>0){
+      ivsd=px*(iv/100)*Math.sqrt(dte/365);
+      shortDte=(dte<1);
+    }
+    if(!isFinite(ivsd))
+      return {v:rv, rv:rv, iv:NaN, gap:0, warn:true, src:'RV เท่านั้น — ยังไม่ได้กรอก IV'};
+
+    /* --- ใช้ค่าที่ใหญ่กว่าเสมอ (โซนต้องอยู่ที่จุดยืดจริง) --- */
+    var big=Math.max(rv,ivsd), small=Math.min(rv,ivsd);
+    var gap=big>0?(big-small)/big:0;
+    var warn=(gap>0.30)||shortDte;
+    var src;
+    if(gap>0.30) src='⚠️ IV/RV ต่างกัน '+Math.round(gap*100)+'% — ใช้ค่าใหญ่';
+    else if(shortDte) src='⚠️ DTE '+dte+' < 1 — IV เชื่อได้น้อย';
+    else src='IV '+iv+'% กับ RV สอดคล้องกัน';
+    return {v:big, rv:rv, iv:ivsd, gap:gap, warn:warn, src:src};
   }
 
   document.getElementById('zLock').onclick=function(){
@@ -2582,11 +2600,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var up=M.filter(function(z){return z.p>px;}).slice(-3);
     var dn=M.filter(function(z){return z.p<=px;}).slice(0,3);
 
-    var sig=up.concat(dn).map(function(z){return z.p.toFixed(1)+z.l;}).join('|')+'|'+N+'|'+SL+'|'+S.ok;
+    var sig=up.concat(dn).map(function(z){return z.p.toFixed(1)+z.l;}).join('|')+'|'+N+'|'+SL+'|'+S.warn+'|'+sd1.toFixed(1);
     if(sig!==SIG){
       SIG=sig; ROWS=[];
       var H='<div class="zchips"><span class="zchip">ATR M15 '+nf(atr)+'</span>'
-        +'<span class="zchip'+(S.ok?'':' warn')+'">'+S.src+' · ±'+nf(sd1)+'</span>'
+        +'<span class="zchip'+(S.warn?' warn':'')+'">'+S.src+'</span>'
+        +'<span class="zchip">ใช้ 1SD ±'+nf(sd1)+' · RV ±'+nf(S.rv)+' · IV '+(isFinite(S.iv)?'±'+nf(S.iv):'—')+'</span>'
         +'<span class="zchip">ไม้ '+N+' MGC</span><span class="zchip">SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
         +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span></div><div class="zlad">';
       function row(z,dir){
@@ -2604,7 +2623,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<div class="zmeta" id="zNowS" style="margin-top:6px">—</div></div>'
         +'<div class="znowd" id="zNowD">—</div></div>';
       for(i=0;i<dn.length;i++) H+=row(dn[i],-1);
-      H+='</div><div class="zplan"><b>กติกาคงที่ — ทำเหมือนกันทุกวัน</b><br>'
+      H+='</div>';
+      if(S.warn) H+='<div class="dstate bad" style="margin-top:10px">⚠️ <b>โซนวันนี้ความเชื่อถือต่ำ</b>'
+        +'<small>'+S.src+' · จอเลือกค่าใหญ่ให้แล้ว (±'+nf(sd1)+') แต่ควร<b> ลดไม้ครึ่งหนึ่ง</b> หรือรอ DTE ≥ 1 ก่อนเชื่อเส้น SD</small></div>';
+      H+='<div class="zplan"><b>กติกาคงที่ — ทำเหมือนกันทุกวัน</b><br>'
         +'1. ราคายังไม่ถึงเส้น → <b>ไม่ทำอะไร</b><br>'
         +'2. แตะเส้นแล้ว (แถวเรืองแสง) → ยังไม่เข้า · <b>รอแท่ง M5 ปิดกลับ</b><br>'
         +'3. เข้าตาม SELL/BUY · SL/TP ตามกล่อง · <b>'+N+' MGC</b><br>'
