@@ -2609,19 +2609,42 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 
     var i, trs=[]; for(i=1;i<C.length;i++) trs.push(Math.max(C[i][2]-C[i][3],Math.abs(C[i][2]-C[i-1][4]),Math.abs(C[i][3]-C[i-1][4])));
     var l14=trs.slice(-14), atr=l14.reduce(function(x,y){return x+y;},0)/l14.length;
-    var S=sdCalc(px,C), sd1=S.v;
+    var S=sdCalc(px,C);
+    /* ปัดกรอบ SD เป็นช่วงละ 5 จุด — RV ขยับนิดหน่อยทุกแท่งใหม่ ถ้าไม่ปัดเส้นจะเลื่อนตลอด
+       ปัดแล้วได้เลขเดิมทุกเครื่อง (มือถือ/คอม) เพราะไม่ต้องพึ่งเวลาที่เปิดจอ */
+    var sd1=Math.max(5,Math.round(S.v/5)*5);
     var SL=Math.max(4,Math.min(8,Math.round(atr*1.1*2)/2)), TP=SL*2;
     var N=Math.max(1,Math.floor(200/(SL*10))), rk=N*SL*10, tg=N*TP*10, fee=N*1.92;
     var A=m2g(dayOpen(C));
 
     var L=[];
-    /* d = บทบาทประจำตัวของเส้น: +1 แนวต้าน (โซน SELL) · −1 แนวรับ (โซน BUY)
-       ใช้ตอนราคามาแตะเส้นพอดี — จะได้ไม่สลับ BUY/SELL ไปมาตามการกระพริบของราคา */
-    function add(p,l,s,w,d){ if(isFinite(p)&&Math.abs(p-px)<3.4*sd1) L.push({p:p,l:l,s:s||'',w:w||1,d:d||0}); }
+    /* d  = บทบาทประจำตัวของเส้น: +1 แนวต้าน (โซน SELL) · −1 แนวรับ (โซน BUY)
+           ใช้ตอนราคามาแตะเส้นพอดี — จะได้ไม่สลับ BUY/SELL ไปมาตามการกระพริบของราคา
+       fx = เส้นนี้ "ฟิก" ไหม  true = ตั้งออเดอร์รอได้เลย ตัวเลขไม่เปลี่ยนทั้งวัน
+                               false = ขยับได้ แต่ขยับเฉพาะตอนราคาทำ high/low ใหม่จริงๆ */
+    function add(p,l,s,w,d,fx){ if(isFinite(p)&&Math.abs(p-px)<3.4*sd1) L.push({p:p,l:l,s:s||'',w:w||1,d:d||0,fx:fx!==false}); }
+
+    /* ① เส้น SD — ยึดราคาเปิดวัน (ฟิกตั้งแต่ตลาดเปิด) × กรอบที่ปัดแล้ว = ฟิกทั้งวัน */
     add(A+sd1,'+1SD','ขอบกรอบวันนี้',2,+1); add(A-sd1,'−1SD','ขอบกรอบวันนี้',2,-1);
     add(A+2*sd1,'+2SD','สุดโต่ง · สวนแรง',2,+1); add(A-2*sd1,'−2SD','สุดโต่ง · สวนแรง',2,-1);
-    var hh=-1e9,ll=1e9; for(i=0;i<C.length;i++){ if(C[i][2]>hh)hh=C[i][2]; if(C[i][3]<ll)ll=C[i][3]; }
-    add(m2g(hh),'High 20 ชม.','ของเก่า · BSL',3,+1); add(m2g(ll),'Low 20 ชม.','ของเก่า · SSL',3,-1);
+
+    /* ② เลขกลมทุก 25 จุด — ไม่เคยขยับ และเป็นแม่เหล็กจริงในตลาดทอง
+          บทบาทเทียบ "ราคาเปิดวัน" ไม่ใช่ราคาปัจจุบัน จะได้ไม่พลิกตอนราคาคร่อม */
+    var r0=Math.ceil((px-2.2*sd1)/25)*25;
+    for(var rp=r0; rp<=px+2.2*sd1; rp+=25) add(rp,'เลขกลม '+rp,'แม่เหล็ก · ไม่เคยขยับ',2.5, rp>A?+1:-1);
+
+    /* ③ High/Low ของ "วันนี้" เท่านั้น — ไม่ใช่หน้าต่าง 20 ชม. ที่เลื่อนหนีทุกแท่ง
+          เส้นนี้ขยับได้ แต่ขยับเมื่อราคาทำจุดสูง/ต่ำใหม่จริงเท่านั้น (= ออเดอร์เดิมโดนไปแล้ว) */
+    var n0=new Date(), d0=Date.UTC(n0.getUTCFullYear(),n0.getUTCMonth(),n0.getUTCDate())/1000;
+    var hh=-1e9,ll=1e9,nDay=0;
+    for(i=0;i<C.length;i++){ if(C[i][0]<d0) continue; nDay++;
+      if(C[i][2]>hh)hh=C[i][2]; if(C[i][3]<ll)ll=C[i][3]; }
+    if(nDay>=4){
+      add(m2g(hh),'High วันนี้','จุดสูงสุดวันนี้ · BSL',3,+1,false);
+      add(m2g(ll),'Low วันนี้','จุดต่ำสุดวันนี้ · SSL',3,-1,false);
+    }
+
+    /* ④ กำแพง OI — มาจาก JANIE เปลี่ยนต่อเมื่อคุณอัปเดตภาพ QuikStrike เอง */
     function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++) add(parseFloat(arr[k][0]),'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString(),4, tag==='CALL'?+1:-1); }
     try{ wl(JP.callWalls,'CALL'); wl(JP.putWalls,'PUT'); }catch(e){}
 
@@ -2629,22 +2652,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var M=[]; for(i=0;i<L.length;i++){ var lz=M[M.length-1];
       if(lz&&Math.abs(lz.p-L[i].p)<0.6*atr){ if(L[i].w>lz.w) M[M.length-1]=L[i]; } else M.push(L[i]); }
 
-    /* ══ ล็อกเส้นทั้งวัน ══
-       เส้นอย่าง "Low 20 ชม." คำนวณจากหน้าต่างที่เลื่อนตลอด → ตัวเลขขยับทุกแท่งใหม่
-       ทำให้กดออเดอร์ไม่ได้ (เห็น 4040 พอจะกดกลายเป็น 4039)
-       → คำนวณครั้งแรกของวันแล้วฟิกไว้ · กด "คำนวณใหม่" เมื่อต้องการรีเฟรชเอง */
-    var ZDAY = new Date().toLocaleDateString('en-CA');
-    var lock = null;
-    try{ lock = JSON.parse(localStorage.getItem('tanu_zone_lock')||'null'); }catch(e){}
-    if(lock && lock.day===ZDAY && Array.isArray(lock.M) && lock.M.length){
-      M = lock.M;                                  // ใช้เส้นที่ล็อกไว้
-    }else if(C.length>=60){                        // แท่งครบพอค่อยล็อก — กันล็อกเส้นเพี้ยนตอนข้อมูลเพิ่งโหลด
-      lock = { day:ZDAY, at:Date.now(), M:M };
-      try{ localStorage.setItem('tanu_zone_lock', JSON.stringify(lock)); }catch(e){}
-    }else{
-      lock = { at:Date.now() };
-    }
-    var lockTime = new Date(lock.at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+    /* ไม่ต้อง "ล็อก" ค่าลงเครื่องแล้ว — เส้นฟิกด้วยตัวนิยามเอง (ราคาเปิดวัน / เลขกลม / กำแพง OI)
+       ทุกเครื่องคำนวณแล้วได้เลขเดียวกัน ไม่ขึ้นกับว่าเปิดจอตอนไหน */
+    var nFix=0; for(i=0;i<M.length;i++) if(M[i].fx) nFix++;
 
     var up=M.filter(function(z){return z.p>px;}).slice(-3);
     var dn=M.filter(function(z){return z.p<=px;}).slice(0,3);
@@ -2660,8 +2670,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<span class="zchip'+(S.warn?' warn':'')+'">กรอบวันนี้ ±'+nf(sd1)+'</span>'
         +'<span class="zchip">'+N+' MGC · SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
         +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span>'
-        +'<span class="zchip" style="border-color:var(--gold);color:var(--gold2)">🔒 เส้นล็อก '+lockTime+'</span>'
-        +'<span class="zchip" id="zReLock" style="cursor:pointer;border-color:var(--accent);color:var(--accent)">🔄 คำนวณใหม่</span>'
+        +'<span class="zchip" style="border-color:var(--gold);color:var(--gold2)">🔒 '+nFix+' เส้นฟิก — ตั้งออเดอร์รอได้</span>'
         +'</div><div class="zlad">';
       function row(z,dir){
         /* ราคามาแตะเส้นพอดี (ในระยะ band) = ยังไม่รู้ว่าจะเด้งหรือทะลุ
@@ -2675,9 +2684,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
           ? ' · <b style="color:var(--gold2)">🔔 ถึงแล้ว — ยืนยันด้วยแท่ง M5 ปิด'
             + (dir>0?'ลง':'ขึ้น') + ' · ปิดสวนทาง = ข้ามไม้นี้</b>'
           : '';
+        var pin = z.fx
+          ? '<span title="ตัวเลขนี้ไม่เปลี่ยนทั้งวัน" style="color:var(--gold2)">🔒</span> '
+          : '<span title="ขยับเมื่อราคาทำ high/low ใหม่เท่านั้น" style="color:var(--faint)">⟳</span> ';
         return '<div class="zrow '+(atLvl?'at':(dir>0?'up':'dn'))+'">'
           +'<div class="zbadge">'+badge+'</div>'
-          +'<div class="zmain"><div class="zprice">'+nf(z.p)+'</div>'
+          +'<div class="zmain"><div class="zprice">'+pin+nf(z.p)+'</div>'
           +'<div class="zmeta"><b>'+z.l+'</b>'+(z.s?' · '+z.s:'')+' · <span class="zdist">—</span>'+hint+'</div>'
           +'<div class="zbarw"><div class="zbar"></div></div></div>'
           +'<div class="zside"><div class="zbox sl"><small>SL</small><b>'+nf(sl)+'</b></div>'
@@ -2697,14 +2709,11 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'3. เข้าตาม SELL/BUY · SL/TP ตามกล่อง · <b>'+N+' MGC</b><br>'
         +'4. ครบ <b>3 ไม้</b> หรือ <b>−$300</b> → ปิดจอ<br>'
         +'<span class="bad">⛔ ห้ามเข้าระหว่างทางที่ราคากำลังวิ่งไปหาเส้น = ไล่ราคา (สถิติจริงของคุณ −$6.64/ไม้)</span><br>'
-        +'ค่าคอม '+N+' MGC = $'+nf(fee,2)+'/รอบ ('+nf(fee/rk*100,1)+'%) · เส้น SD ยึดราคาเปิดวัน '+nf(A)+'<br>'
+        +'<b>🔒 = ตัวเลขฟิกทั้งวัน ตั้ง limit รอได้เลย</b> (SD ยึดราคาเปิดวัน '+nf(A)+' · เลขกลม · กำแพง OI)<br>'
+        +'<b>⟳ = high/low วันนี้</b> ขยับเฉพาะตอนราคาทำจุดใหม่จริง — ถ้าขยับแปลว่าออเดอร์เดิมโดนไปแล้ว<br>'
+        +'ค่าคอม '+N+' MGC = $'+nf(fee,2)+'/รอบ ('+nf(fee/rk*100,1)+'%)<br>'
         +'<span style="color:var(--faint)">⚠️ เครื่องมือช่วยตัดสินใจ ไม่ใช่คำแนะนำการลงทุน</span></div>';
       box.innerHTML=H;
-      var reBtn=document.getElementById('zReLock');
-      if(reBtn) reBtn.onclick=function(){
-        try{ localStorage.removeItem('tanu_zone_lock'); }catch(e){}
-        SIG=''; tick();                            // ล้างล็อก แล้วคำนวณเส้นชุดใหม่จากราคาปัจจุบัน
-      };
       var els=box.querySelectorAll('.zrow'), k=0;
       for(i=0;i<up.length;i++){ ROWS.push({el:els[k],d:els[k].querySelector('.zdist'),b:els[k].querySelector('.zbar'),z:up[i]}); k++; }
       k++;
