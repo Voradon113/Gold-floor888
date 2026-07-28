@@ -2647,12 +2647,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
            → ใช้บทบาทประจำตัวของเส้น (z.d) ตั้ง SL/TP ไว้ก่อน แต่ป้ายเป็น "รอยืนยัน"
            กันปัญหาป้ายกระพริบ BUY↔SELL ตอนราคาแกว่งคร่อมเส้น */
         var atLvl = Math.abs(z.p - px) < band;
-        if(atLvl && z.d) dir = z.d;
+        if(atLvl && z.d) dir = z.d;          // ที่เส้น = ใช้บทบาทของเส้น (ไม่พลิกตามราคากระพริบ)
         var sl=dir>0?z.p+SL:z.p-SL, tp=dir>0?z.p-TP:z.p+TP;
-        var badge = atLvl ? '⏳ รอยืนยัน' : (dir>0?'SELL':'BUY');
+        var badge = dir>0?'SELL':'BUY';      // บอกทิศเสมอ — ไม่ขึ้นคำว่า "รอ" แทนคำตอบ
         var hint  = atLvl
-          ? ' · <b style="color:var(--gold2)">ราคาอยู่ที่เส้น — รอ M5 ปิด: ปิดกลับ'
-            + (z.d>0?'ลง → SELL':'ขึ้น → BUY') + ' · ปิดทะลุ → ข้ามไม้นี้</b>'
+          ? ' · <b style="color:var(--gold2)">🔔 ถึงแล้ว — ยืนยันด้วยแท่ง M5 ปิด'
+            + (dir>0?'ลง':'ขึ้น') + ' · ปิดสวนทาง = ข้ามไม้นี้</b>'
           : '';
         return '<div class="zrow '+(atLvl?'at':(dir>0?'up':'dn'))+'">'
           +'<div class="zbadge">'+badge+'</div>'
