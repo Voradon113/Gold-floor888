@@ -1074,14 +1074,19 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
      ======================================================================== */
   var FEDWATCH = {
     current: '350-375',                                   // ดอกเบี้ยปัจจุบัน
-    updated: '26 ก.ค. 2026',
-    meeting: { date:'29 ก.ค. 2026', ease:0, hold:65.8, hike:34.2 }  // ประชุมหน้า (ใกล้สุด)
+    updated: '28 ก.ค. 2026',
+    // ประชุมแรก = โชว์บาร์เต็ม · ที่เหลือ = บรรทัดย่อ (ใส่ได้หลายอัน)
+    meetings: [
+      { date:'29 ก.ค. 2026', ease:0, hold:62.1, hike:37.9 },
+      { date:'16 ก.ย. 2026', ease:0, hold:19.2, hike:80.8, note:'ขึ้น 2 ครั้ง 26%' }
+    ]
   };
   function num(v){ var n=Number(v); return isNaN(n)?0:n; }
   function render(){
     var box=document.getElementById('fedBars'); if(!box) return;
     var meet=document.getElementById('fedMeet'), note=document.getElementById('fedNote'), upd=document.getElementById('fedUpd');
-    var m=FEDWATCH.meeting;
+    var MS = FEDWATCH.meetings || (FEDWATCH.meeting ? [FEDWATCH.meeting] : []);
+    var m = MS[0];
     if(!m || m.hold==null || m.hike==null){ box.innerHTML=''; note.textContent='';
       meet.innerHTML='รอเลข FedWatch (แก้ FEDWATCH ในไฟล์)'; upd.textContent='—'; return; }
     var ease=num(m.ease), hold=num(m.hold), hike=num(m.hike);
@@ -1092,11 +1097,34 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       return '<div class="fedrow"><span style="color:'+r[2]+'">'+r[0]+'</span>'+
         '<div class="fedbar"><i style="width:'+Math.max(1.5,Math.min(100,r[1]))+'%;background:'+r[2]+'"></i></div>'+
         '<span style="text-align:right;color:'+r[2]+'">'+r[1].toFixed(0)+'%</span></div>'; }).join('');
+    /* ประชุมถัดๆ ไป — บรรทัดย่อ บอกเฉพาะผลที่ตลาดให้น้ำหนักสูงสุด
+       (เห็น "เส้นทางดอกเบี้ย" โดยไม่รกเหมือนโชว์บาร์ทุกประชุม) */
+    if(MS.length > 1){
+      box.innerHTML += '<div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line)">'
+        + MS.slice(1).map(function(x){
+            var e=num(x.ease), ho=num(x.hold), hi=num(x.hike);
+            var win = (hi>=ho&&hi>=e) ? ['ขึ้น',hi,'var(--down)']
+                    : (e>=ho&&e>=hi)  ? ['ลด',e,'var(--up)']
+                                      : ['คง',ho,'var(--gold2)'];
+            return '<div class="fedrow" style="margin:5px 0">'
+              + '<span style="color:var(--dim)">'+(x.date||'—')+'</span>'
+              + '<div class="fedbar"><i style="width:'+Math.max(1.5,Math.min(100,win[1]))
+              + '%;background:'+win[2]+'"></i></div>'
+              + '<span style="text-align:right;color:'+win[2]+'">'+win[0]+' '+win[1].toFixed(0)+'%</span></div>'
+              + (x.note ? '<div style="font:600 10.5px var(--mono);color:var(--faint);margin:-2px 0 6px 0">↳ '+x.note+'</div>' : '');
+          }).join('') + '</div>';
+    }
+
     var nc, nt;
     if(hike>=hold&&hike>=ease){ nc='var(--down)'; nt='ตลาดคาด "ขึ้นดอกเบี้ย" '+hike.toFixed(0)+'% → กดดันทอง (bearish)'; }
     else if(ease>=hold&&ease>=hike){ nc='var(--up)'; nt='ตลาดคาด "ลดดอกเบี้ย" '+ease.toFixed(0)+'% → หนุนทอง (bullish)'; }
     else { nc='var(--gold2)'; nt='ตลาดคาด "คงดอกเบี้ย" '+hold.toFixed(0)+'% → ทองไซด์เวย์'; }
-    note.style.color=nc; note.textContent=nt;
+    // ถ้าประชุมถัดไปสวนทางกับประชุมหน้า = เตือนว่าภาพกลาง-ยาวต่างจากภาพสั้น
+    if(MS.length>1){
+      var n2=MS[1], h2=num(n2.hike), o2=num(n2.hold);
+      if(h2>o2 && hike<hold) nt += ' · ⚠️ แต่ ' + (n2.date||'') + ' ตลาดคาดขึ้น ' + h2.toFixed(0) + '% → ภาพกลางกดทอง';
+    }
+    note.style.color=nc; note.innerHTML=nt;
   }
   render();
 })();
