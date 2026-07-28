@@ -2628,6 +2628,24 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     L.sort(function(x,y){ return y.p-x.p; });
     var M=[]; for(i=0;i<L.length;i++){ var lz=M[M.length-1];
       if(lz&&Math.abs(lz.p-L[i].p)<0.6*atr){ if(L[i].w>lz.w) M[M.length-1]=L[i]; } else M.push(L[i]); }
+
+    /* ══ ล็อกเส้นทั้งวัน ══
+       เส้นอย่าง "Low 20 ชม." คำนวณจากหน้าต่างที่เลื่อนตลอด → ตัวเลขขยับทุกแท่งใหม่
+       ทำให้กดออเดอร์ไม่ได้ (เห็น 4040 พอจะกดกลายเป็น 4039)
+       → คำนวณครั้งแรกของวันแล้วฟิกไว้ · กด "คำนวณใหม่" เมื่อต้องการรีเฟรชเอง */
+    var ZDAY = new Date().toLocaleDateString('en-CA');
+    var lock = null;
+    try{ lock = JSON.parse(localStorage.getItem('tanu_zone_lock')||'null'); }catch(e){}
+    if(lock && lock.day===ZDAY && Array.isArray(lock.M) && lock.M.length){
+      M = lock.M;                                  // ใช้เส้นที่ล็อกไว้
+    }else if(C.length>=60){                        // แท่งครบพอค่อยล็อก — กันล็อกเส้นเพี้ยนตอนข้อมูลเพิ่งโหลด
+      lock = { day:ZDAY, at:Date.now(), M:M };
+      try{ localStorage.setItem('tanu_zone_lock', JSON.stringify(lock)); }catch(e){}
+    }else{
+      lock = { at:Date.now() };
+    }
+    var lockTime = new Date(lock.at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+
     var up=M.filter(function(z){return z.p>px;}).slice(-3);
     var dn=M.filter(function(z){return z.p<=px;}).slice(0,3);
 
@@ -2641,7 +2659,10 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       var H='<div class="zchips">'
         +'<span class="zchip'+(S.warn?' warn':'')+'">กรอบวันนี้ ±'+nf(sd1)+'</span>'
         +'<span class="zchip">'+N+' MGC · SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
-        +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span></div><div class="zlad">';
+        +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span>'
+        +'<span class="zchip" style="border-color:var(--gold);color:var(--gold2)">🔒 เส้นล็อก '+lockTime+'</span>'
+        +'<span class="zchip" id="zReLock" style="cursor:pointer;border-color:var(--accent);color:var(--accent)">🔄 คำนวณใหม่</span>'
+        +'</div><div class="zlad">';
       function row(z,dir){
         /* ราคามาแตะเส้นพอดี (ในระยะ band) = ยังไม่รู้ว่าจะเด้งหรือทะลุ
            → ใช้บทบาทประจำตัวของเส้น (z.d) ตั้ง SL/TP ไว้ก่อน แต่ป้ายเป็น "รอยืนยัน"
@@ -2679,6 +2700,11 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'ค่าคอม '+N+' MGC = $'+nf(fee,2)+'/รอบ ('+nf(fee/rk*100,1)+'%) · เส้น SD ยึดราคาเปิดวัน '+nf(A)+'<br>'
         +'<span style="color:var(--faint)">⚠️ เครื่องมือช่วยตัดสินใจ ไม่ใช่คำแนะนำการลงทุน</span></div>';
       box.innerHTML=H;
+      var reBtn=document.getElementById('zReLock');
+      if(reBtn) reBtn.onclick=function(){
+        try{ localStorage.removeItem('tanu_zone_lock'); }catch(e){}
+        SIG=''; tick();                            // ล้างล็อก แล้วคำนวณเส้นชุดใหม่จากราคาปัจจุบัน
+      };
       var els=box.querySelectorAll('.zrow'), k=0;
       for(i=0;i<up.length;i++){ ROWS.push({el:els[k],d:els[k].querySelector('.zdist'),b:els[k].querySelector('.zbar'),z:up[i]}); k++; }
       k++;
