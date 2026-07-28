@@ -156,6 +156,10 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
 .tllbl{position:absolute;top:34px;font:600 9px var(--mono);color:var(--faint);transform:translateX(-50%)}
 .seglbl{position:absolute;top:16px;font:700 9px var(--mono);color:#0b0f13;letter-spacing:1px;transform:translateX(-50%)}
 
+/* การ์ด Basis — ซ่อนไว้ เพราะช่อง "GC บน Topstep" ในการ์ดโซนทำหน้าที่เดียวกันแล้ว
+   ห้ามลบ DOM ทิ้ง: การ์ดโซนอ่านค่า offset spot→GC จาก .basisnum/.basismeta ของการ์ดนี้
+   ถ้าลบ ราคาทุกเส้นจะเพี้ยนไปเท่ากับ carry (~27 จุด) */
+.basisgrid{display:none}
 .basiscard{background:linear-gradient(135deg,var(--accentSoft),var(--card) 55%)}
 .basiswrap{display:flex;flex-direction:column;gap:8px}
 .basisnum{font:800 42px var(--mono);line-height:1;letter-spacing:.5px}
@@ -243,7 +247,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
     <div id="rgList"></div>
     <div class="rgfoot" id="rgFoot">—</div>
   </div></div>
-  <div class="grid"><div class="card basiscard">
+  <div class="grid basisgrid"><div class="card basiscard">
     <h2>Basis · XAUUSD − GC <span class="chip" id="basisSrc">—</span></h2>
     <div class="basiswrap">
       <div class="basisnum" id="basisNum">—</div>
@@ -2590,13 +2594,23 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     return {v:big, rv:rv, iv:ivsd, gap:gap, warn:warn, src:src};
   }
 
+  /* ช่อง "GC บน Topstep" นี้เป็นที่กรอก GC ที่เดียวของทั้งจอแล้ว (การ์ด Basis ถูกซ่อน)
+     จึงต้องส่งค่าต่อไปให้กลไก basis ที่ซ่อนอยู่ด้วย ไม่งั้นกราฟ/เส้นอื่นจะใช้ค่าเก่า */
+  function pushToBasis(v){
+    var gm=document.getElementById('gcManual'), gs=document.getElementById('gcSet');
+    if(gm&&gs){ gm.value=v; gs.click(); }
+  }
   document.getElementById('zLock').onclick=function(){
     var v=parseFloat(document.getElementById('zIn').value);
     if(!isFinite(v)||v<100){ document.getElementById('zBs').textContent='ใส่ราคา GC ก่อน'; return; }
     if(!RT.px){ document.getElementById('zBs').textContent='รอราคาสด…'; return; }
-    LOCK=v-RT.px; SIG=''; tick();
+    LOCK=v-RT.px; pushToBasis(v); SIG=''; tick();
   };
-  document.getElementById('zAuto').onclick=function(){ LOCK=null; SIG=''; tick(); };
+  document.getElementById('zAuto').onclick=function(){
+    LOCK=null;
+    var gc=document.getElementById('gcClear'); if(gc) gc.click();
+    SIG=''; tick();
+  };
 
   var SIG='', ROWS=[], LASTP=null;
   function tick(){
