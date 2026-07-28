@@ -2469,7 +2469,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   +'.zrow.hot .zprice{color:#ffc850}'
   +'.zrow.hot .zbadge{animation:zpulse 1.1s ease-in-out infinite}'
   +'@keyframes zpulse{0%,100%{opacity:1}50%{opacity:.45}}'
-  +'.zrow.now{grid-template-columns:1fr auto;padding:18px 16px;'
+  +'.zrow.at{border-color:var(--gold);background:rgba(232,183,63,.10)}.zrow.at .zbadge{background:var(--gold);color:#000}.zrow.now{grid-template-columns:1fr auto;padding:18px 16px;'
   +'background:linear-gradient(90deg,rgba(255,200,80,.15),rgba(255,255,255,.02));border:1px dashed rgba(255,200,80,.65)}'
   +'.znow{font:900 46px var(--mono);line-height:1;color:#ffc850;letter-spacing:1px}'
   +'.znowd{text-align:right;font:800 12px var(--mono);color:var(--dim)}'
@@ -2587,12 +2587,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var A=m2g(dayOpen(C));
 
     var L=[];
-    function add(p,l,s,w){ if(isFinite(p)&&Math.abs(p-px)<3.4*sd1) L.push({p:p,l:l,s:s||'',w:w||1}); }
-    add(A+sd1,'+1SD','ขอบกรอบวันนี้',2); add(A-sd1,'−1SD','ขอบกรอบวันนี้',2);
-    add(A+2*sd1,'+2SD','สุดโต่ง · สวนแรง',2); add(A-2*sd1,'−2SD','สุดโต่ง · สวนแรง',2);
+    /* d = บทบาทประจำตัวของเส้น: +1 แนวต้าน (โซน SELL) · −1 แนวรับ (โซน BUY)
+       ใช้ตอนราคามาแตะเส้นพอดี — จะได้ไม่สลับ BUY/SELL ไปมาตามการกระพริบของราคา */
+    function add(p,l,s,w,d){ if(isFinite(p)&&Math.abs(p-px)<3.4*sd1) L.push({p:p,l:l,s:s||'',w:w||1,d:d||0}); }
+    add(A+sd1,'+1SD','ขอบกรอบวันนี้',2,+1); add(A-sd1,'−1SD','ขอบกรอบวันนี้',2,-1);
+    add(A+2*sd1,'+2SD','สุดโต่ง · สวนแรง',2,+1); add(A-2*sd1,'−2SD','สุดโต่ง · สวนแรง',2,-1);
     var hh=-1e9,ll=1e9; for(i=0;i<C.length;i++){ if(C[i][2]>hh)hh=C[i][2]; if(C[i][3]<ll)ll=C[i][3]; }
-    add(m2g(hh),'High 20 ชม.','ของเก่า · BSL',3); add(m2g(ll),'Low 20 ชม.','ของเก่า · SSL',3);
-    function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++) add(parseFloat(arr[k][0]),'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString(),4); }
+    add(m2g(hh),'High 20 ชม.','ของเก่า · BSL',3,+1); add(m2g(ll),'Low 20 ชม.','ของเก่า · SSL',3,-1);
+    function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++) add(parseFloat(arr[k][0]),'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString(),4, tag==='CALL'?+1:-1); }
     try{ wl(JP.callWalls,'CALL'); wl(JP.putWalls,'PUT'); }catch(e){}
 
     L.sort(function(x,y){ return y.p-x.p; });
@@ -2601,7 +2603,11 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var up=M.filter(function(z){return z.p>px;}).slice(-3);
     var dn=M.filter(function(z){return z.p<=px;}).slice(0,3);
 
-    var sig=up.concat(dn).map(function(z){return z.p.toFixed(1)+z.l;}).join('|')+'|'+N+'|'+SL+'|'+S.warn+'|'+sd1.toFixed(1);
+    /* band = ระยะที่ถือว่า "ราคาอยู่ที่เส้นแล้ว" — กว้างพอไม่ให้ป้ายกระพริบตอนราคาแกว่งคร่อมเส้น */
+    var band = Math.max(0.4*atr, SL*0.5);
+    var sig=up.concat(dn).map(function(z){
+      return z.p.toFixed(1)+z.l+(Math.abs(z.p-px)<band?'@':'');
+    }).join('|')+'|'+N+'|'+SL+'|'+S.warn+'|'+sd1.toFixed(1);
     if(sig!==SIG){
       SIG=sig; ROWS=[];
       var H='<div class="zchips">'
@@ -2609,11 +2615,21 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<span class="zchip">'+N+' MGC · SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
         +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span></div><div class="zlad">';
       function row(z,dir){
+        /* ราคามาแตะเส้นพอดี (ในระยะ band) = ยังไม่รู้ว่าจะเด้งหรือทะลุ
+           → ใช้บทบาทประจำตัวของเส้น (z.d) ตั้ง SL/TP ไว้ก่อน แต่ป้ายเป็น "รอยืนยัน"
+           กันปัญหาป้ายกระพริบ BUY↔SELL ตอนราคาแกว่งคร่อมเส้น */
+        var atLvl = Math.abs(z.p - px) < band;
+        if(atLvl && z.d) dir = z.d;
         var sl=dir>0?z.p+SL:z.p-SL, tp=dir>0?z.p-TP:z.p+TP;
-        return '<div class="zrow '+(dir>0?'up':'dn')+'">'
-          +'<div class="zbadge">'+(dir>0?'SELL':'BUY')+'</div>'
+        var badge = atLvl ? '⏳ รอยืนยัน' : (dir>0?'SELL':'BUY');
+        var hint  = atLvl
+          ? ' · <b style="color:var(--gold2)">ราคาอยู่ที่เส้น — รอ M5 ปิด: ปิดกลับ'
+            + (z.d>0?'ลง → SELL':'ขึ้น → BUY') + ' · ปิดทะลุ → ข้ามไม้นี้</b>'
+          : '';
+        return '<div class="zrow '+(atLvl?'at':(dir>0?'up':'dn'))+'">'
+          +'<div class="zbadge">'+badge+'</div>'
           +'<div class="zmain"><div class="zprice">'+nf(z.p)+'</div>'
-          +'<div class="zmeta"><b>'+z.l+'</b>'+(z.s?' · '+z.s:'')+' · <span class="zdist">—</span></div>'
+          +'<div class="zmeta"><b>'+z.l+'</b>'+(z.s?' · '+z.s:'')+' · <span class="zdist">—</span>'+hint+'</div>'
           +'<div class="zbarw"><div class="zbar"></div></div></div>'
           +'<div class="zside"><div class="zbox sl"><small>SL</small><b>'+nf(sl)+'</b></div>'
           +'<div class="zbox tp"><small>TP</small><b>'+nf(tp)+'</b></div></div></div>';
