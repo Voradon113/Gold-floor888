@@ -2637,6 +2637,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
        และเส้น SD ไปตกบนเลขกลมๆ จำง่ายด้วย */
     var A=Math.round(m2g(dayOpen(C))/25)*25;
 
+    /* ══ แท่งเทียนค้างหรือเปล่า ══
+       ถ้า EA/MT5 หยุดส่ง ทุกอย่างที่คำนวณจากแท่งจะค้างตามไปด้วย แต่จอยังโชว์เลขหน้าตาปกติ
+       = อันตรายกว่าไม่โชว์เลย เพราะดูเหมือนใช้ได้ทั้งที่ราคาวิ่งไปไกลแล้ว
+       เส้นที่ยังเชื่อได้ตอนแท่งค้าง: เลขกลม (คิดจากราคาสด) · กำแพง OI (มาจาก JANIE)
+       เส้นที่เชื่อไม่ได้: ±SD (ยึดราคาเปิดวัน + RV จากแท่ง) · High/Low วันนี้ */
+    var candleAgeH=(Date.now()/1000 - C[C.length-1][0])/3600;
+    var stale=candleAgeH>1.5;
+
     var L=[];
     /* d  = บทบาทประจำตัวของเส้น: +1 แนวต้าน (โซน SELL) · −1 แนวรับ (โซน BUY)
            ใช้ตอนราคามาแตะเส้นพอดี — จะได้ไม่สลับ BUY/SELL ไปมาตามการกระพริบของราคา
@@ -2644,9 +2652,12 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
                                false = ขยับได้ แต่ขยับเฉพาะตอนราคาทำ high/low ใหม่จริงๆ */
     function add(p,l,s,w,d,fx){ if(isFinite(p)&&Math.abs(p-px)<3.4*sd1) L.push({p:p,l:l,s:s||'',w:w||1,d:d||0,fx:fx!==false}); }
 
-    /* ① เส้น SD — ยึดราคาเปิดวัน (ฟิกตั้งแต่ตลาดเปิด) × กรอบที่ปัดแล้ว = ฟิกทั้งวัน */
-    add(A+sd1,'+1SD','ขอบกรอบวันนี้',2,+1); add(A-sd1,'−1SD','ขอบกรอบวันนี้',2,-1);
-    add(A+2*sd1,'+2SD','สุดโต่ง · สวนแรง',2,+1); add(A-2*sd1,'−2SD','สุดโต่ง · สวนแรง',2,-1);
+    /* ① เส้น SD — ยึดราคาเปิดวัน (ฟิกตั้งแต่ตลาดเปิด) × กรอบที่ปัดแล้ว = ฟิกทั้งวัน
+          ข้ามไปถ้าแท่งค้าง เพราะทั้งจุดยึดและ RV มาจากแท่งทั้งคู่ */
+    if(!stale){
+      add(A+sd1,'+1SD','ขอบกรอบวันนี้',2,+1); add(A-sd1,'−1SD','ขอบกรอบวันนี้',2,-1);
+      add(A+2*sd1,'+2SD','สุดโต่ง · สวนแรง',2,+1); add(A-2*sd1,'−2SD','สุดโต่ง · สวนแรง',2,-1);
+    }
 
     /* ② เลขกลมทุก 25 จุด — ไม่เคยขยับ และเป็นแม่เหล็กจริงในตลาดทอง
           บทบาทเทียบ "ราคาเปิดวัน" ไม่ใช่ราคาปัจจุบัน จะได้ไม่พลิกตอนราคาคร่อม */
@@ -2659,7 +2670,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var hh=-1e9,ll=1e9,nDay=0;
     for(i=0;i<C.length;i++){ if(C[i][0]<d0) continue; nDay++;
       if(C[i][2]>hh)hh=C[i][2]; if(C[i][3]<ll)ll=C[i][3]; }
-    if(nDay>=4){
+    if(nDay>=4 && !stale){
       add(m2g(hh),'High วันนี้','จุดสูงสุดวันนี้ · BSL',3,+1,false);
       add(m2g(ll),'Low วันนี้','จุดต่ำสุดวันนี้ · SSL',3,-1,false);
     }
@@ -2683,11 +2694,18 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var band = Math.max(0.4*atr, SL*0.5);
     var sig=up.concat(dn).map(function(z){
       return z.p.toFixed(1)+z.l+(Math.abs(z.p-px)<band?'@':'');
-    }).join('|')+'|'+N+'|'+SL+'|'+S.warn+'|'+sd1.toFixed(1);
+    }).join('|')+'|'+N+'|'+SL+'|'+S.warn+'|'+sd1.toFixed(1)+'|'+(stale?Math.round(candleAgeH):0);
     if(sig!==SIG){
       SIG=sig; ROWS=[];
-      var H='<div class="zchips">'
-        +'<span class="zchip'+(S.warn?' warn':'')+'">กรอบวันนี้ ±'+nf(sd1)+'</span>'
+      var H='';
+      if(stale) H+='<div class="dstate bad" style="margin-bottom:10px">🔌 <b>แท่งเทียนค้างมา '
+        +nf(candleAgeH,1)+' ชม. — MT5/EA หยุดส่งข้อมูล</b>'
+        +'<small>ซ่อนเส้น <b>±SD</b> กับ <b>High/Low วันนี้</b> ไว้ก่อน เพราะทั้งคู่คำนวณจากแท่งที่ค้าง '
+        +'ถ้าโชว์ต่อจะเป็นเลขของเมื่อวานที่ดูเหมือนใช้ได้<br>'
+        +'เส้นที่เหลือ (<b>เลขกลม</b> · <b>กำแพง OI</b>) ยังใช้ได้ปกติ — คิดจากราคาสดกับข้อมูล JANIE ไม่ใช่จากแท่ง<br>'
+        +'แก้: เปิด MT5 + EA ค้างไว้ แล้วรอ ~1 นาที</small></div>';
+      H+='<div class="zchips">'
+        +'<span class="zchip'+(S.warn||stale?' warn':'')+'">'+(stale?'กรอบ SD ปิดไว้':'กรอบวันนี้ ±'+nf(sd1))+'</span>'
         +'<span class="zchip">'+N+' MGC · SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
         +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span>'
         +'<span class="zchip" style="border-color:var(--gold);color:var(--gold2)">🔒 '+nFix+' เส้นฟิก — ตั้งออเดอร์รอได้</span>'
@@ -2721,7 +2739,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'<div class="znowd" id="zNowD">—</div></div>';
       for(i=0;i<dn.length;i++) H+=row(dn[i],-1);
       H+='</div>';
-      if(S.warn) H+='<div class="dstate bad" style="margin-top:10px">⚠️ <b>โซนวันนี้ความเชื่อถือต่ำ</b>'
+      if(S.warn && !stale) H+='<div class="dstate bad" style="margin-top:10px">⚠️ <b>โซนวันนี้ความเชื่อถือต่ำ</b>'
         +'<small>'+S.src+' · จอเลือกค่าใหญ่ให้แล้ว (±'+nf(sd1)+') แต่ควร<b> ลดไม้ครึ่งหนึ่ง</b> หรือรอ DTE ≥ 1 ก่อนเชื่อเส้น SD</small></div>';
       H+='<div class="zplan"><b>กติกาคงที่ — ทำเหมือนกันทุกวัน</b><br>'
         +'1. ราคายังไม่ถึงเส้น → <b>ไม่ทำอะไร</b><br>'
@@ -2729,8 +2747,8 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'3. เข้าตาม SELL/BUY · SL/TP ตามกล่อง · <b>'+N+' MGC</b><br>'
         +'4. ครบ <b>3 ไม้</b> หรือ <b>−$300</b> → ปิดจอ<br>'
         +'<span class="bad">⛔ ห้ามเข้าระหว่างทางที่ราคากำลังวิ่งไปหาเส้น = ไล่ราคา (สถิติจริงของคุณ −$6.64/ไม้)</span><br>'
-        +'<b>🔒 = ตัวเลขฟิกทั้งวัน ตั้ง limit รอได้เลย</b> (SD ยึดจุด '+nf(A,0)+' · เลขกลม · กำแพง OI)<br>'
-        +'<b>⟳ = high/low วันนี้</b> ขยับเฉพาะตอนราคาทำจุดใหม่จริง — ถ้าขยับแปลว่าออเดอร์เดิมโดนไปแล้ว<br>'
+        +'<b>🔒 = ตัวเลขฟิกทั้งวัน ตั้ง limit รอได้เลย</b> ('+(stale?'เลขกลม · กำแพง OI':'SD ยึดจุด '+nf(A,0)+' · เลขกลม · กำแพง OI')+')<br>'
+        +(stale?'':'<b>⟳ = high/low วันนี้</b> ขยับเฉพาะตอนราคาทำจุดใหม่จริง — ถ้าขยับแปลว่าออเดอร์เดิมโดนไปแล้ว<br>')
         +'ค่าคอม '+N+' MGC = $'+nf(fee,2)+'/รอบ ('+nf(fee/rk*100,1)+'%)<br>'
         +'<span style="color:var(--faint)">⚠️ เครื่องมือช่วยตัดสินใจ ไม่ใช่คำแนะนำการลงทุน</span></div>';
       box.innerHTML=H;
