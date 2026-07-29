@@ -2517,7 +2517,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     document.querySelectorAll('.card').forEach(function(c){
       var h=c.querySelector('h2'); if(!h) return;
       var t=h.textContent;
-      if(t.indexOf('แผนวันนี้')>=0 || t.indexOf('ระยะถึงโซน')>=0 || t.indexOf('ตาราง SD')>=0){
+      if(t.indexOf('แผนวันนี้')>=0 || t.indexOf('ระยะถึงโซน')>=0 || t.indexOf('ตาราง SD')>=0 || t.indexOf('PROP GATE')>=0){
         var w=c.parentElement;
         if(w&&w.classList.contains('grid')&&w.children.length===1) w.style.display='none';
         else c.style.display='none';
@@ -2783,10 +2783,21 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     if(ch) ch.textContent = hotN?'🔔 ถึงระดับแล้ว':(near<1e8?'ใกล้สุด '+nf(near)+' จุด':'—');
   }
   (function(){
-    var ivEl=document.getElementById('zIV'), oldIV=document.getElementById('sdIV');
-    if(ivEl&&oldIV&&oldIV.value&&!ivEl.value) ivEl.value=oldIV.value;
+    var ZK='tanu_zone_v1';
+    var ivEl=document.getElementById('zIV'), undEl=document.getElementById('zUnd');
+    var oldIV=document.getElementById('sdIV');
+
+    /* คืนค่าที่บันทึกไว้ */
+    try{
+      var o=JSON.parse(localStorage.getItem(ZK)||'{}');
+      if(ivEl && o.iv)  ivEl.value=o.iv;
+      if(undEl && o.und) undEl.value=o.und;
+      if(typeof o.lock==='number' && isFinite(o.lock)) LOCK=o.lock;
+      if(typeof o.woff==='number' && isFinite(o.woff)) WOFF=o.woff;
+    }catch(e){}
+    if(ivEl && oldIV && oldIV.value && !ivEl.value) ivEl.value=oldIV.value;
+
     if(ivEl) ivEl.oninput=function(){ SIG=''; tick(); };
-    var undEl=document.getElementById('zUnd');
     if(undEl) undEl.oninput=function(){
       var u=parseFloat(undEl.value);
       var live=RT.px&&(Date.now()-RT.t<25000);
@@ -2794,6 +2805,16 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       WOFF=(isFinite(u)&&u>100&&p!==null)?(p-u):0;
       SIG=''; tick();
     };
+
+    /* บันทึกอัตโนมัติทุก 3 วิ ถ้ามีการเปลี่ยน */
+    var last='';
+    setInterval(function(){
+      var s=JSON.stringify({
+        iv:(ivEl&&ivEl.value)||'', und:(undEl&&undEl.value)||'',
+        lock:LOCK, woff:WOFF
+      });
+      if(s!==last){ last=s; try{ localStorage.setItem(ZK,s); }catch(e){} }
+    },3000);
   })();
   tick(); setInterval(tick,1000);
 })();
