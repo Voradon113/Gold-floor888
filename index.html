@@ -3818,6 +3818,35 @@ if(new URLSearchParams(location.search).get('mt5show')==='1')
       t.setAttribute('data-gcw',out);
     }
 
+    /* --- ซ่อน TP / SL ในกราฟ (เส้นขยับตลอด ใช้ตั้งออเดอร์ไม่ได้) --- */
+    var hideY=[], tx=c.querySelectorAll('text'), q, s2;
+    for(q=0;q<tx.length;q++){
+      s2=tx[q].textContent.trim();
+      if(/^(TP|SL)([^A-Za-zก-๙]|$)/.test(s2)){
+        tx[q].style.display='none';
+        hideY.push(Math.round(parseFloat(tx[q].getAttribute('y'))||0));
+      }
+    }
+    if(hideY.length){
+      var ln=c.querySelectorAll('line'), w, z, y1, y2;
+      for(w=0;w<ln.length;w++){
+        y1=Math.round(parseFloat(ln[w].getAttribute('y1'))||0);
+        y2=Math.round(parseFloat(ln[w].getAttribute('y2'))||0);
+        if(y1!==y2) continue;
+        for(z=0;z<hideY.length;z++){ if(Math.abs(y1-hideY[z])<=6){ ln[w].style.display='none'; break; } }
+      }
+    }
+
+    /* --- ป้ายเตือน --- */
+    if(!c.querySelector('.gcwarn')){
+      var wd=document.createElement('div');
+      wd.className='gcwarn';
+      wd.style.cssText='margin:-2px 0 10px;padding:9px 12px;border-radius:10px;background:rgba(255,200,80,.12);border:1px solid rgba(255,200,80,.32);font:700 11.5px/1.6 var(--mono);color:#ffd98a';
+      wd.textContent='📐 กราฟนี้ดูโครงสร้างอย่างเดียว — เส้นทุกเส้นขยับตลอดเวลา · เลขสำหรับตั้งออเดอร์ใช้ 🔒 จากการ์ด "โซนวันนี้" เท่านั้น';
+      var h2=c.querySelector('h2');
+      if(h2 && h2.nextSibling) c.insertBefore(wd,h2.nextSibling); else c.appendChild(wd);
+    }
+
     var chip=document.getElementById('sdxBasis');
     if(chip && chip.textContent!=='ราคา GC · Topstep') chip.textContent='ราคา GC · Topstep';
     var note=document.getElementById('sdxNote');
