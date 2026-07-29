@@ -2517,7 +2517,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     document.querySelectorAll('.card').forEach(function(c){
       var h=c.querySelector('h2'); if(!h) return;
       var t=h.textContent;
-      if(t.indexOf('แผนวันนี้')>=0 || t.indexOf('ระยะถึงโซน')>=0){
+      if(t.indexOf('แผนวันนี้')>=0 || t.indexOf('ระยะถึงโซน')>=0 || t.indexOf('ตาราง SD')>=0){
         var w=c.parentElement;
         if(w&&w.classList.contains('grid')&&w.children.length===1) w.style.display='none';
         else c.style.display='none';
@@ -2532,7 +2532,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   var g=document.createElement('div'); g.className='grid';
   g.innerHTML='<div class="card zcard"><h2>🎯 โซนวันนี้ · GC สด <span class="chip" id="zChip">—</span></h2>'
    +'<div class="zhead"><div class="zbig"><span id="zPx">—</span><small id="zAge">กำลังต่อราคาสด…</small></div>'
-   +'<div class="zcal"><label>GC บน Topstep</label><input id="zIn" type="number" step="0.1" placeholder="4055.1">'
+   +'<div class="zcal"><label>IV %</label><input id="zIV" type="number" step="0.1" placeholder="21.9" style="width:70px">'
+   +'<label>QuikStrike ref</label><input id="zUnd" type="number" step="0.1" placeholder="4053.8" style="width:84px">'
+   +'<label>GC บน Topstep</label><input id="zIn" type="number" step="0.1" placeholder="4084.7">'
    +'<button id="zLock" class="zbtn">ล็อก</button><button id="zAuto" class="zbtn">อัตโนมัติ</button>'
    +'<span id="zBs" class="zchip">basis —</span></div></div><div id="zoneBody"></div></div>';
   sdGrid.parentElement.insertBefore(g,sdGrid);
@@ -2548,7 +2550,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   poll(); setInterval(poll,2000);
 
   /* ---------- basis ---------- */
-  var LOCK=null;
+  var LOCK=null, WOFF=0;
   function cardOff(){ var e=document.querySelector('.basisnum'); if(!e) return null;
     var v=parseFloat(e.innerText.replace(/[−–—]/g,'-').replace(/[^0-9.\-]/g,'')); return isFinite(v)?-v:null; }
   function carryNow(){ var m=document.querySelector('.basismeta');
@@ -2563,7 +2565,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     for(var i=0;i<C.length;i++) if(C[i][0]>=d0) return C[i][1];
     return C[0][1]; }
   function sdCalc(px,C){
-    /* --- RV: วัดจากแท่งเทียนจริง --- */
+    /* --- RV: จากแท่งเทียนจริง (ตัดช่องว่างสุดสัปดาห์) --- */
     var r=[],i;
     for(i=1;i<C.length;i++){
       if(C[i-1][4]>0 && (C[i][0]-C[i-1][0])===900) r.push(Math.log(C[i][4]/C[i-1][4]));
@@ -2572,26 +2574,21 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var vv=r.reduce(function(x,y){return x+(y-mu)*(y-mu);},0)/(r.length-1);
     var rv=Math.sqrt(vv)*Math.sqrt(96)*C[C.length-1][4];
 
-    /* --- IV: จากออปชั่น (ถ้ากรอก) --- */
-    var iE=document.getElementById('sdIV'), dE=document.getElementById('sdDTE');
-    var iv=iE?parseFloat(iE.value):NaN, dte=dE?parseFloat(dE.value):NaN;
-    var ivsd=NaN, shortDte=false;
-    if(isFinite(iv)&&iv>0&&isFinite(dte)&&dte>0){
-      ivsd=px*(iv/100)*Math.sqrt(dte/365);
-      shortDte=(dte<1);
-    }
-    if(!isFinite(ivsd))
-      return {v:rv, rv:rv, iv:NaN, gap:0, warn:true, src:'RV เท่านั้น — ยังไม่ได้กรอก IV'};
+    /* --- IV: กรอบ 1 วันเสมอ ไม่ต้องใช้ DTE --- */
+    var e=document.getElementById('zIV')||document.getElementById('sdIV');
+    var iv=e?parseFloat(e.value):NaN;
+    var ivsd=(isFinite(iv)&&iv>0)? px*(iv/100)*Math.sqrt(1/365) : NaN;
 
-    /* --- ใช้ค่าที่ใหญ่กว่าเสมอ (โซนต้องอยู่ที่จุดยืดจริง) --- */
-    var big=Math.max(rv,ivsd), small=Math.min(rv,ivsd);
-    var gap=big>0?(big-small)/big:0;
-    var warn=(gap>0.30)||shortDte;
-    var src;
-    if(gap>0.30) src='⚠️ IV/RV ต่างกัน '+Math.round(gap*100)+'% — ใช้ค่าใหญ่';
-    else if(shortDte) src='⚠️ DTE '+dte+' < 1 — IV เชื่อได้น้อย';
-    else src='IV '+iv+'% กับ RV สอดคล้องกัน';
-    return {v:big, rv:rv, iv:ivsd, gap:gap, warn:warn, src:src};
+    if(!isFinite(ivsd))
+      return {v:rv, rv:rv, iv:NaN, warn:true, mode:'', src:'ยังไม่ได้กรอก IV — ใช้ RV อย่างเดียว'};
+
+    var big=Math.max(rv,ivsd), ratio=(rv>0?ivsd/rv:1);
+    var mode, src, warn=false;
+    if(ratio>1.15){ mode='สวนกรอบ'; src='IV แพงกว่าจริง '+Math.round((ratio-1)*100)+'% — ตลาดกลัวเกิน มักแกว่งในกรอบ'; }
+    else if(ratio<0.85){ mode='ตามเบรก'; src='IV ถูกกว่าจริง '+Math.round((1-ratio)*100)+'% — ตลาดประมาท มักหลุดกรอบ'; }
+    else { mode='กลาง'; src='IV กับ RV สอดคล้องกัน'; }
+    if(ratio>1.7||ratio<0.6){ warn=true; src='⚠️ IV/RV ต่างกันมาก · '+src; }
+    return {v:big, rv:rv, iv:ivsd, warn:warn, mode:mode, src:src};
   }
 
   /* ช่อง "GC บน Topstep" นี้เป็นที่กรอก GC ที่เดียวของทั้งจอแล้ว (การ์ด Basis ถูกซ่อน)
@@ -2676,7 +2673,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     }
 
     /* ④ กำแพง OI — มาจาก JANIE เปลี่ยนต่อเมื่อคุณอัปเดตภาพ QuikStrike เอง */
-    function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++) add(parseFloat(arr[k][0]),'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString(),4, tag==='CALL'?+1:-1); }
+    function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++) add(parseFloat(arr[k][0])+WOFF,'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString()+(WOFF?' ·ปรับ'+(WOFF>0?'+':'')+WOFF.toFixed(0):''),4, tag==='CALL'?+1:-1); }
     try{ wl(JP.callWalls,'CALL'); wl(JP.putWalls,'PUT'); }catch(e){}
 
     L.sort(function(x,y){ return y.p-x.p; });
@@ -2705,7 +2702,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
         +'เส้นที่เหลือ (<b>เลขกลม</b> · <b>กำแพง OI</b>) ยังใช้ได้ปกติ — คิดจากราคาสดกับข้อมูล JANIE ไม่ใช่จากแท่ง<br>'
         +'แก้: เปิด MT5 + EA ค้างไว้ แล้วรอ ~1 นาที</small></div>';
       H+='<div class="zchips">'
-        +'<span class="zchip'+(S.warn||stale?' warn':'')+'">'+(stale?'กรอบ SD ปิดไว้':'กรอบวันนี้ ±'+nf(sd1))+'</span>'
+        +'<span class="zchip'+(S.warn||stale?' warn':'')+'">'+(stale?'กรอบ SD ปิดไว้':'กรอบวันนี้ ±'+nf(sd1)+(S.mode?' · '+S.mode:''))+'</span>'
         +'<span class="zchip">'+N+' MGC · SL '+nf(SL)+' · TP '+nf(TP)+'</span>'
         +'<span class="zchip">เสี่ยง $'+nf(rk,0)+' → ได้ $'+nf(tg,0)+'</span>'
         +'<span class="zchip" style="border-color:var(--gold);color:var(--gold2)">🔒 '+nFix+' เส้นฟิก — ตั้งออเดอร์รอได้</span>'
@@ -2785,6 +2782,19 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var ch=document.getElementById('zChip');
     if(ch) ch.textContent = hotN?'🔔 ถึงระดับแล้ว':(near<1e8?'ใกล้สุด '+nf(near)+' จุด':'—');
   }
+  (function(){
+    var ivEl=document.getElementById('zIV'), oldIV=document.getElementById('sdIV');
+    if(ivEl&&oldIV&&oldIV.value&&!ivEl.value) ivEl.value=oldIV.value;
+    if(ivEl) ivEl.oninput=function(){ SIG=''; tick(); };
+    var undEl=document.getElementById('zUnd');
+    if(undEl) undEl.oninput=function(){
+      var u=parseFloat(undEl.value);
+      var live=RT.px&&(Date.now()-RT.t<25000);
+      var p=live?RT.px+basis():null;
+      WOFF=(isFinite(u)&&u>100&&p!==null)?(p-u):0;
+      SIG=''; tick();
+    };
+  })();
   tick(); setInterval(tick,1000);
 })();
 </script>
