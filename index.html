@@ -3819,16 +3819,18 @@ if(new URLSearchParams(location.search).get('mt5show')==='1')
     }
 
     var chip=document.getElementById('sdxBasis');
-    if(chip && chip.getAttribute('data-gcw')!=='1'){
-      chip.textContent='ราคา GC · Topstep';
-      chip.setAttribute('data-gcw','1');
-    }
+    if(chip && chip.textContent!=='ราคา GC · Topstep') chip.textContent='ราคา GC · Topstep';
     var note=document.getElementById('sdxNote');
     if(note && note.textContent.indexOf('XAUUSD')>=0){
       note.textContent=note.textContent.replace(/XAUUSD/g,'GC').replace(/CFD/g,'Topstep');
     }
   }
-  setInterval(run,700);
+  setInterval(run,120);
+  try{
+    var mo=new MutationObserver(function(){ run(); });
+    var c0=card();
+    if(c0) mo.observe(c0,{childList:true,subtree:true,characterData:true});
+  }catch(e){}
   run();
 })();
 </script></body>
