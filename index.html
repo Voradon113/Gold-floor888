@@ -275,7 +275,7 @@ body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .
   </div></div>
 
   <div class="grid"><div class="card">
-    <h2>กราฟ XAUUSD · โซนราคา (แปลง basis) <span class="chip" id="sdxBasis">basis —</span></h2>
+    <h2>📈 กราฟ GC · ราคา Topstep <span class="chip" id="sdxBasis">basis —</span></h2>
     <div class="sdxbox" id="sdxBox" title="ล้อ=ซูม · ลาก=เลื่อน · ลากแกนราคาขวา=ยืดราคา · ดับเบิลคลิก=รีเซ็ต">
       <svg class="sdxchart" id="sdxChart" viewBox="0 0 760 344"></svg>
     </div>
@@ -2765,6 +2765,7 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       R.b.style.width = Math.max(2,Math.min(100,(1-ad/sd1)*100))+'%';
       R.el.classList.toggle('hot',hot);
     }
+    try{ var _mb=(MP&&MP.bid)||0; if(px&&_mb) window.TANU_GCBASIS=px-_mb; }catch(e){}
     var np=document.getElementById('zNowP'); if(np) np.textContent=nf(px);
     var ns=document.getElementById('zNowS');
     if(ns) ns.innerHTML='◀ <b>ราคา GC ตอนนี้</b> · spot '+nf(RT.px||0,2)+' · basis '+(basis()>=0?'+':'')+nf(basis(),2)+(LOCK!==null?' (ล็อก)':'');
@@ -3783,5 +3784,52 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 /* เปิดการ์ด MT5 กลับมาชั่วคราวด้วย ?mt5show=1 (ไม่ต้องแก้ไฟล์) */
 if(new URLSearchParams(location.search).get('mt5show')==='1')
   Array.prototype.forEach.call(document.querySelectorAll('.mt5box'),function(e){ e.style.display=''; });
+</script><script>
+/* ===== แปลงกราฟให้เป็นราคา GC (Topstep) ทั้งใบ ไม่มี CFD ===== */
+(function(){
+  function card(){
+    var cs=document.querySelectorAll('.card');
+    for(var i=0;i<cs.length;i++){
+      var h=cs[i].querySelector('h2');
+      if(h && (h.textContent.indexOf('กราฟ GC')>=0 || h.textContent.indexOf('กราฟ XAUUSD')>=0)) return cs[i];
+    }
+    return null;
+  }
+  function fmt(n){
+    return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:1});
+  }
+  function run(){
+    var c=card(); if(!c) return;
+    var b=window.TANU_GCBASIS;
+    if(typeof b!=='number' || !isFinite(b) || Math.abs(b)>500) return;
+
+    var nodes=c.querySelectorAll('text');
+    for(var i=0;i<nodes.length;i++){
+      var t=nodes[i];
+      var mine=t.getAttribute('data-gcw');
+      if(mine!==null && t.textContent===mine) continue;   /* แปลงไปแล้ว */
+      var raw=t.textContent;
+      var m=/^([^0-9]*)([0-9][0-9,]*(?:\.[0-9]+)?)([^0-9]*)$/.exec(raw);
+      if(!m) continue;
+      var val=parseFloat(m[2].replace(/,/g,''));
+      if(!isFinite(val) || val<3000 || val>7000) continue;   /* เฉพาะช่วงราคาทอง */
+      var out=m[1]+fmt(val+b)+m[3];
+      t.textContent=out;
+      t.setAttribute('data-gcw',out);
+    }
+
+    var chip=document.getElementById('sdxBasis');
+    if(chip && chip.getAttribute('data-gcw')!=='1'){
+      chip.textContent='ราคา GC · Topstep';
+      chip.setAttribute('data-gcw','1');
+    }
+    var note=document.getElementById('sdxNote');
+    if(note && note.textContent.indexOf('XAUUSD')>=0){
+      note.textContent=note.textContent.replace(/XAUUSD/g,'GC').replace(/CFD/g,'Topstep');
+    }
+  }
+  setInterval(run,700);
+  run();
+})();
 </script></body>
 </html>
