@@ -3974,6 +3974,50 @@ if(new URLSearchParams(location.search).get('mt5show')==='1')
   pull();
   setInterval(pull, 5*60000);          // ไฟล์ต้นทางเดินทุก 5-11 นาที ดึงถี่กว่านี้ไม่ได้อะไรเพิ่ม
   setInterval(function(){ if(window.__V2V) chip(window.__V2V); }, 30000);
+
+  /* ── ปุ่มคัดลอกไป TradingView ──
+     Pine ดึงข้อมูลจากเน็ตเองไม่ได้ ต้องวางสตริงเข้าไป
+     รูปแบบ: C4160:694,P4120:105|<ราคาอ้างอิง>|<1SD>   (ราคาแปลงเป็นสัญญาที่เทรดแล้ว) */
+  function tvString(){
+    var V = window.__V2V; if(!V) return '';
+    var off = 0;
+    try{
+      var px = parseFloat((document.getElementById('zNowP')||{}).textContent.replace(/,/g,''));
+      if(isFinite(px) && isFinite(V.ref)) off = px - V.ref;      // ส่วนต่างสัญญาคุณ ↔ ไฟล์
+    }catch(e){}
+    var sd = (isFinite(V.iv) && isFinite(V.dte))
+      ? V.ref*(V.iv/100)*Math.sqrt(Math.max(V.dte,0.01)/365) : NaN;
+    var w = [];
+    V.callWalls.forEach(function(r){ w.push('C'+Math.round(+r[0]+off)+':'+Math.round(r[1])); });
+    V.putWalls.forEach(function(r){  w.push('P'+Math.round(+r[0]+off)+':'+Math.round(r[1])); });
+    return w.join(',') + '|' + Math.round(V.ref+off) + '|' + (isFinite(sd)?Math.round(sd):0);
+  }
+  function addBtn(){
+    var box = document.querySelector('.zcard .zchips');
+    if(!box || document.getElementById('tvCopy')) return;
+    var b = document.createElement('span');
+    b.id='tvCopy'; b.className='zchip';
+    b.style.cssText='cursor:pointer;border-color:var(--gold);color:var(--gold2)';
+    b.textContent='📋 คัดลอกไป TradingView';
+    b.onclick=function(){
+      var s = tvString();
+      if(!s){ b.textContent='📋 ยังไม่มีข้อมูล'; return; }
+      var done=function(){ b.textContent='✅ คัดลอกแล้ว — วางในช่อง "ข้อมูลกำแพง"';
+        setTimeout(function(){ b.textContent='📋 คัดลอกไป TradingView'; },4000); };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(s).then(done,function(){ fallback(s,done); });
+      } else fallback(s,done);
+    };
+    function fallback(s,cb){                      // https บางเครื่อง/มือถือบล็อก clipboard API
+      var t=document.createElement('textarea');
+      t.value=s; t.style.cssText='position:fixed;opacity:0';
+      document.body.appendChild(t); t.select();
+      try{ document.execCommand('copy'); cb(); }catch(e){ prompt('คัดลอกข้อความนี้:', s); }
+      document.body.removeChild(t);
+    }
+    box.appendChild(b);
+  }
+  setInterval(addBtn, 3000); addBtn();
 })();
 </script></body>
 </html>
