@@ -2684,7 +2684,13 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
 
     /* ④ กำแพง OI — มาจาก JANIE เปลี่ยนต่อเมื่อคุณอัปเดตภาพ QuikStrike เอง */
     function wl(arr,tag){ if(!arr) return; for(var k=0;k<arr.length;k++) add(parseFloat(arr[k][0])+WOFF,'กำแพง '+tag,'OI '+Number(arr[k][1]).toLocaleString()+(WOFF?' ·ปรับ'+(WOFF>0?'+':'')+WOFF.toFixed(0):''),4, tag==='CALL'?+1:-1); }
-    try{ wl(JP.callWalls,'CALL'); wl(JP.putWalls,'PUT'); }catch(e){}
+    /* ถ้ามี Vol2Vol สด (OG|GC ของจริง ดึงตรงจาก GitHub) ใช้อันนั้นก่อน
+       ของ JANIE มาจากภาพ QuikStrike ที่อัปเดตมือ อาจเป็นสัญญาคนละตัว/ค้างหลายวัน */
+    try{
+      var VW = (window.__V2V && Date.now()-window.__V2V.at < 25*60000) ? window.__V2V : null;
+      if(VW){ wl(VW.callWalls,'CALL'); wl(VW.putWalls,'PUT'); }
+      else  { wl(JP.callWalls,'CALL'); wl(JP.putWalls,'PUT'); }
+    }catch(e){}
 
     L.sort(function(x,y){ return y.p-x.p; });
     var M=[]; for(i=0;i<L.length;i++){ var lz=M[M.length-1];
@@ -3873,6 +3879,101 @@ if(new URLSearchParams(location.search).get('mt5show')==='1')
     if(c0) mo.observe(c0,{childList:true,subtree:true,characterData:true});
   }catch(e){}
   run();
+})();
+</script>
+
+<script>
+/* ══════════ Vol2Vol — โฟลว์ออปชั่นทอง COMEX (OG|GC) อัตโนมัติ ══════════
+   ดึงตรงจาก github.com/pageth/Vol2VolData (sync ทุก ~5-11 นาที) ไม่ผ่าน JANIE
+   เพราะ raw.githubusercontent ส่ง CORS ให้อยู่แล้ว = ไม่ต้อง deploy Apps Script ใหม่
+
+   แก้ปัญหาที่เจอจริง: ช่อง IV ค้างที่ 19 ทั้งที่ของจริง 43 · QuikStrike ref ค้าง 4054
+   เขียนทับช่องกรอกแบบ "ไม่ทับของที่คุณพิมพ์เอง" — ถ้าคุณแก้ค่าเอง มันจะหยุดยุ่ง */
+(function(){
+  var BASE = 'https://raw.githubusercontent.com/pageth/Vol2VolData/main/';
+  var lastAutoIV = null, lastAutoUnd = null;   // ค่าที่ "เรา" เซ็ตไว้ล่าสุด ใช้ดูว่าผู้ใช้แก้เองหรือยัง
+
+  function parse(txt){
+    if(!txt) return null;
+    var L = txt.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    if(L.length < 4) return null;
+    var m = /(\S+)\s+\(([\d.]+)\s*DTE\)\s*vs\s*([\d.]+)\s*\(([+-][\d.]+)\)/.exec(L[0]);
+    if(!m) return null;
+    function num(lbl){
+      var r = new RegExp(lbl+':\\s*(-?[\\d,]+(?:\\.\\d+)?)').exec(L[1]);
+      return r ? parseFloat(r[1].replace(/,/g,'')) : NaN;
+    }
+    var rows = [];
+    for(var i=3;i<L.length;i++){
+      var p = L[i].split(',');
+      if(p.length < 4) continue;
+      var k=parseFloat(p[0]), c=parseFloat(p[1]), pu=parseFloat(p[2]), v=parseFloat(p[3]);
+      if(isFinite(k)&&isFinite(c)&&isFinite(pu)) rows.push({k:k,c:c,p:pu,v:v});
+    }
+    if(!rows.length) return null;
+    return { contract:m[1], dte:parseFloat(m[2]), ref:parseFloat(m[3]), chg:parseFloat(m[4]),
+             put:num('Put'), call:num('Call'), iv:num('Vol'), ivChg:num('Vol Chg'), rows:rows };
+  }
+  function top(rows, side, n){
+    return rows.slice().sort(function(a,b){return b[side]-a[side];}).slice(0,n)
+               .map(function(r){ return [String(r.k), r[side], 0]; });
+  }
+  function get(f){
+    return fetch(BASE+f+'?t='+Date.now(),{cache:'no-store'})
+      .then(function(r){ return r.ok ? r.text() : null; })
+      .catch(function(){ return null; });
+  }
+
+  /* เขียนค่าลงช่องกรอกแบบสุภาพ — ถ้าผู้ใช้แก้เอง (ค่าปัจจุบัน ≠ ค่าที่เราเซ็ตไว้) จะไม่ทับ */
+  function politeSet(el, val, lastAuto){
+    if(!el || !isFinite(val)) return lastAuto;
+    if(document.activeElement === el) return lastAuto;        // กำลังพิมพ์อยู่ อย่ายุ่ง
+    var cur = el.value.trim();
+    if(cur !== '' && lastAuto !== null && cur !== String(lastAuto)) return lastAuto;  // ผู้ใช้แก้เอง
+    var s = String(val);
+    if(cur !== s){
+      el.value = s;
+      el.dispatchEvent(new Event('input', {bubbles:true}));   // ให้การ์ดโซนคำนวณใหม่
+    }
+    return s;
+  }
+
+  function chip(d){
+    var box = document.querySelector('.zcard .zchips');
+    if(!box) return;
+    var el = document.getElementById('v2vChip');
+    if(!el){
+      el = document.createElement('span');
+      el.id = 'v2vChip'; el.className = 'zchip';
+      el.style.cssText = 'border-color:var(--accent);color:var(--accent)';
+      box.appendChild(el);
+    }
+    var age = Math.round((Date.now()-d.at)/60000);
+    el.textContent = '📡 ' + d.contract + ' · IV ' + d.iv.toFixed(1)
+      + (isFinite(d.ivChg) ? ' (' + (d.ivChg>=0?'+':'') + d.ivChg.toFixed(1) + ')' : '')
+      + ' · อัตโนมัติ ' + (age<1 ? 'เมื่อครู่' : age+' นาที');
+  }
+
+  function pull(){
+    Promise.all([get('OIData.txt'), get('IntradayData.txt')]).then(function(r){
+      var O = parse(r[0]), I = parse(r[1]);
+      if(!O) return;
+      window.__V2V = {
+        at: Date.now(), contract:O.contract, dte:O.dte, ref:O.ref, chg:O.chg,
+        iv:O.iv, ivChg:O.ivChg, put:O.put, call:O.call,
+        callWalls: top(O.rows,'c',6), putWalls: top(O.rows,'p',6),
+        rows:O.rows, intra: I || null
+      };
+      /* ช่อง IV = ATM IV จากไฟล์ · ช่อง QuikStrike ref = ราคาอ้างอิงของไฟล์
+         สองอันนี้เคยต้องกรอกมือแล้วลืมอัปเดต จนเส้นเพี้ยนมาทั้งวัน */
+      lastAutoIV  = politeSet(document.getElementById('zIV'),  Math.round(O.iv*10)/10, lastAutoIV);
+      lastAutoUnd = politeSet(document.getElementById('zUnd'), O.ref, lastAutoUnd);
+      chip(window.__V2V);
+    });
+  }
+  pull();
+  setInterval(pull, 5*60000);          // ไฟล์ต้นทางเดินทุก 5-11 นาที ดึงถี่กว่านี้ไม่ได้อะไรเพิ่ม
+  setInterval(function(){ if(window.__V2V) chip(window.__V2V); }, 30000);
 })();
 </script></body>
 </html>
