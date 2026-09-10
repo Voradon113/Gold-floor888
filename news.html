@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TANU · ข่าวสาร &amp; รายใหญ่</title>
+<style>
+:root, :root[data-theme="dark"]{
+  --bg1:#0b1226; --bg2:#080d1e;
+  --glow1:rgba(79,124,255,.12); --glow2:rgba(124,92,255,.09);
+  --card:#111a33; --card2:#16203f; --line:rgba(120,140,220,.16);
+  --ink:#eaf0ff; --dim:#94a1c6; --faint:#5b678c; --head:#c7d2f0;
+  --accent:#4f7cff; --accent2:#7c5cff; --accentSoft:rgba(79,124,255,.16);
+  --track:#1b2542; --shadow:0 10px 30px rgba(2,6,20,.45);
+  /* semantic — mostly constant so JS-drawn SVG hexes stay coherent */
+  --gold:#e8b73f; --gold2:#ffd97a; --up:#2fd18d; --down:#f0604a;
+  --mono:'DejaVu Sans Mono','SF Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg1:#e9edf7; --bg2:#f6f8fd;
+  --glow1:rgba(79,124,255,.10); --glow2:rgba(124,92,255,.06);
+  --card:#ffffff; --card2:#f4f7fc; --line:#e5e9f3;
+  --ink:#18213c; --dim:#5b6787; --faint:#8892ad; --head:#3c4a6b;
+  --accent:#3b6ef5; --accent2:#7c5cff; --accentSoft:rgba(59,110,245,.10);
+  --track:#e9edf6; --shadow:0 8px 24px rgba(30,50,120,.10);
+  --gold:#e8b73f; --gold2:#c2911d; --up:#2fd18d; --down:#f0604a;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--ink);font-size:14px;overflow-x:hidden;
+  font-family:system-ui,'Segoe UI','Trebuchet MS','Noto Sans Thai',sans-serif;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(1100px 620px at 88% -12%,var(--glow1),transparent 60%),
+    radial-gradient(920px 600px at -5% 4%,var(--glow2),transparent 56%),
+    linear-gradient(180deg,var(--bg1),var(--bg2));
+  background-attachment:fixed}
+body,.top,.card,.pill,.chip,.themebtn,.pc,.p,.ring{transition:background-color .28s,border-color .28s,color .28s,box-shadow .28s}
+.wrap{max-width:1240px;margin:0 auto;padding:16px}
+.themebtn{cursor:pointer;font:600 11px var(--mono);padding:6px 12px;border-radius:99px;
+  border:1px solid var(--line);background:var(--card2);color:var(--dim);
+  display:inline-flex;align-items:center;gap:5px;line-height:1}
+.themebtn:hover{color:var(--ink);border-color:var(--accent)}
+.themebtn .l{display:none}
+:root[data-theme="light"] .themebtn .d{display:none}
+:root[data-theme="light"] .themebtn .l{display:inline-flex;align-items:center;gap:5px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:13px 16px;border:1px solid var(--line);border-radius:16px;
+  background:var(--card);box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:12px}
+.coin{width:36px;height:36px;border-radius:11px;flex:0 0 36px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  box-shadow:0 6px 16px rgba(79,124,255,.4);color:#fff;font:800 13px var(--mono)}
+.brand b{font-size:15.5px;letter-spacing:.3px;color:var(--ink)}
+.pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font:600 11px var(--mono);padding:6px 11px;border-radius:99px;border:1px solid var(--line);
+  background:var(--card2);color:var(--dim);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);box-shadow:0 0 8px currentColor}
+.dot.on{background:var(--up);color:var(--up)}
+.dot.off{background:var(--faint);color:transparent}
+.dot.warn{background:var(--down);color:var(--down)}
+.clock{font:600 13px var(--mono);color:var(--accent)}
+
+.grid{display:grid;gap:14px;margin-top:14px}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g2{grid-template-columns:1.35fr .65fr}
+.g2e{grid-template-columns:1fr 1fr}
+@media(max-width:960px){.g2e{grid-template-columns:1fr}}
+@media(max-width:960px){.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;
+  position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.card h2{margin:0 0 12px;font-size:12px;letter-spacing:1.2px;color:var(--head);
+  text-transform:uppercase;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.chip{font:600 10px var(--mono);padding:4px 10px;border-radius:99px;background:var(--accentSoft);
+  color:var(--accent);letter-spacing:.4px;text-transform:none;border:1px solid transparent}
+
+.gauge{text-align:center;margin-top:-4px}
+.gnum{font:700 46px var(--mono);line-height:1;margin-top:-58px}
+.glbl{font-size:13px;color:var(--dim);margin-top:8px;min-height:18px}
+.gsub{font:600 10px var(--mono);color:var(--faint);letter-spacing:1px;margin-top:10px;
+  display:flex;justify-content:space-between}
+
+.planhead{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.side{font:800 13px var(--mono);letter-spacing:2px;padding:7px 16px;border-radius:99px}
+.side.SHORT{background:rgba(240,96,74,.15);color:var(--down);border:1px solid rgba(240,96,74,.35)}
+.side.LONG{background:rgba(47,209,141,.15);color:var(--up);border:1px solid rgba(47,209,141,.35)}
+.side.WAIT{background:rgba(232,183,63,.14);color:var(--gold2);border:1px solid rgba(232,183,63,.32)}
+.phase{font-size:12px;color:var(--faint)}
+.pcards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.pcards{grid-template-columns:1fr}}
+.pc{display:flex;gap:11px;align-items:flex-start;background:var(--card2);border-radius:12px;
+  padding:12px 13px;border:1px solid var(--line);border-left:3px solid var(--line);
+  font-size:13.5px;line-height:1.5;color:var(--ink)}
+.pc.long{border-left-color:var(--up)} .pc.short{border-left-color:var(--down)}
+.pc.watch{border-left-color:var(--gold)} .pc.stop{border-left-color:var(--faint)}
+.pc .ic{font-size:15px;line-height:1.3}
+.pc small{display:block;color:var(--faint);font:600 9.5px var(--mono);letter-spacing:1px;margin-bottom:2px}
+.pc b{color:var(--gold2)}
+
+.ladder{width:100%;height:auto;display:block}
+
+.hrow{display:grid;grid-template-columns:44px 1fr;align-items:center;gap:8px;margin-bottom:4px}
+.hk{font:600 11px var(--mono);color:var(--dim);text-align:right}
+.hbar{height:22px;border-radius:6px;position:relative;display:flex;align-items:center;
+  padding:0 8px;font:600 10px var(--mono);color:#0b0f13;overflow:hidden}
+.hbar span{margin-left:auto;opacity:.85}
+.hnow{height:22px;border-radius:6px;border:1px dashed rgba(232,183,63,.6);
+  background:rgba(232,183,63,.10);display:flex;align-items:center;padding:0 8px;
+  font:700 10px var(--mono);color:var(--gold2);letter-spacing:1px}
+
+/* การ์ด MT5 (equity/ความเสี่ยง/ออเดอร์) — ซ่อนไว้เพราะย้ายไปเทรด Topstep แล้ว
+   ไม่ลบทิ้งเพราะการ์ดอื่นใช้หัวข้อ "พอร์ตจริง" เป็นจุดยึดตำแหน่ง
+   อยากให้กลับมา: ลบบรรทัด .mt5box ข้างล่างนี้ทิ้ง (หรือใส่ ?mt5show=1 ท้าย URL) */
+.mt5box{display:none}
+.pf{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center}
+@media(max-width:700px){.pf{grid-template-columns:1fr}}
+.big{font:700 34px var(--mono);line-height:1;color:var(--ink)}
+.big small{font:600 11px var(--mono);color:var(--faint);display:block;letter-spacing:1.5px;margin-bottom:4px}
+.deltas{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.delta{font:700 13px var(--mono);padding:6px 12px;border-radius:99px}
+.delta.up{background:rgba(47,209,141,.14);color:var(--up)}
+.delta.down{background:rgba(240,96,74,.14);color:var(--down)}
+.delta small{display:block;font:600 9px var(--mono);opacity:.7;letter-spacing:1px}
+.spark{width:100%;height:92px;margin-top:14px}
+.collect{height:92px;margin-top:14px;border-radius:12px;border:1px dashed var(--line);
+  display:grid;place-items:center;color:var(--faint);font:600 11px var(--mono);gap:8px;text-align:center}
+.pulse{width:150px;height:3px;border-radius:2px;background:var(--track);overflow:hidden}
+.pulse i{display:block;height:100%;width:40%;background:var(--accent);animation:sl 1.8s ease-in-out infinite}
+@keyframes sl{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+.rings{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ring{background:var(--card2);border-radius:14px;padding:12px;text-align:center;border:1px solid var(--line)}
+.ring svg{width:78px;height:78px}
+.ring b{display:block;font:700 15px var(--mono);margin-top:-48px;margin-bottom:32px;color:var(--ink)}
+.ring small{display:block;font:600 9.5px var(--mono);color:var(--faint);letter-spacing:1px}
+
+.pos{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.p{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:13px;
+  position:relative;overflow:hidden}
+.p::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.p.win::after{background:var(--up)} .p.lose::after{background:var(--down)}
+.ptop{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.psym{font:700 14px var(--mono);letter-spacing:.5px;color:var(--ink)}
+.pside{font:700 9.5px var(--mono);padding:3px 8px;border-radius:99px;letter-spacing:1px}
+.pside.BUY{background:rgba(47,209,141,.14);color:var(--up)}
+.pside.SELL{background:rgba(240,96,74,.14);color:var(--down)}
+.ppl{font:700 20px var(--mono)}
+.pmeta{display:flex;justify-content:space-between;font:600 10px var(--mono);color:var(--faint);margin-top:8px}
+.pbar{height:4px;border-radius:2px;background:var(--track);margin-top:9px;overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:2px}
+.empty{grid-column:1/-1;color:var(--faint);font:600 12px var(--mono);text-align:center;padding:22px}
+
+.tl{position:relative;height:44px;margin-top:6px}
+.tlbar{position:absolute;left:0;right:0;top:14px;height:16px;border-radius:8px;background:var(--track);overflow:hidden;border:1px solid var(--line)}
+.seg{position:absolute;top:0;bottom:0;opacity:.6}
+.tlmark{position:absolute;top:6px;width:2px;height:32px;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.tllbl{position:absolute;top:34px;font:600 9px var(--mono);color:var(--faint);transform:translateX(-50%)}
+.seglbl{position:absolute;top:16px;font:700 9px var(--mono);color:#0b0f13;letter-spacing:1px;transform:translateX(-50%)}
+
+/* การ์ด Basis — ซ่อนไว้ เพราะช่อง "GC บน Topstep" ในการ์ดโซนทำหน้าที่เดียวกันแล้ว
+   ห้ามลบ DOM ทิ้ง: การ์ดโซนอ่านค่า offset spot→GC จาก .basisnum/.basismeta ของการ์ดนี้
+   ถ้าลบ ราคาทุกเส้นจะเพี้ยนไปเท่ากับ carry (~27 จุด) */
+.basisgrid{display:none}
+.basiscard{background:linear-gradient(135deg,var(--accentSoft),var(--card) 55%)}
+.basiswrap{display:flex;flex-direction:column;gap:8px}
+.basisnum{font:800 42px var(--mono);line-height:1;letter-spacing:.5px}
+.basismeta{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font:600 12px var(--mono);color:var(--dim)}
+.basismeta b{color:var(--ink);margin-left:5px}
+.basisstate{margin-left:auto;color:var(--faint);font-size:11px}
+@media(max-width:520px){.basisstate{margin-left:0;flex-basis:100%}}
+.basisinput{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:4px;font:600 11px var(--mono);color:var(--dim)}
+.basisinput input{width:150px;padding:5px 8px;border-radius:7px;border:1px solid var(--track);background:var(--bg);color:var(--ink);font:600 12px var(--mono)}
+.basisinput input:focus{outline:none;border-color:var(--accent)}
+.basisinput button{padding:5px 12px;border-radius:7px;border:0;background:var(--accent);color:#fff;font:700 11px var(--mono);cursor:pointer}
+.basisinput button#gcClear{background:var(--track);color:var(--dim);padding:5px 9px}
+.basisinput button:hover{filter:brightness(1.1)}
+/* กล่องกราฟยืดหดได้ — ลากมุมขวาล่าง (native resize ของเบราว์เซอร์) เหมือน TradingView
+   กราฟวาดใหม่ตามความสูงจริงเป็นพิกเซล → ตัวหนังสือไม่ยืด ไม่เบลอ */
+.sdxbox{resize:vertical;overflow:hidden;height:430px;min-height:240px;max-height:900px;
+  border-radius:12px;position:relative;cursor:grab;touch-action:none;user-select:none}
+.sdxbox:active{cursor:grabbing}
+.sdxbox::after{content:"⇕";position:absolute;right:6px;bottom:2px;font-size:11px;
+  color:var(--faint);pointer-events:none;opacity:.75}
+.sdxchart{width:100%;height:100%;display:block}
+.sdxhint{margin-top:7px;font:600 11px var(--mono);color:var(--faint);line-height:1.6}
+@media(max-width:700px){.sdxbox{height:320px}}
+.sdxnote{margin-top:8px;font:600 10.5px var(--mono);color:var(--faint);line-height:1.5}
+
+.zdist{display:flex;flex-direction:column;gap:7px}
+.zrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font:600 12px var(--mono);background:var(--card2);border-radius:9px;padding:8px 11px;border-left:3px solid var(--line)}
+.zrow .znm{color:var(--dim)}
+.zrow.near{box-shadow:0 0 0 1px var(--gold) inset}
+.alerts{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:170px;overflow:auto}
+.alert{font:600 11.5px var(--mono);padding:7px 10px;border-radius:8px;display:flex;gap:8px;align-items:center;background:rgba(240,96,74,.13);color:#f2a597;border:1px solid rgba(240,96,74,.28)}
+.alert.up{background:rgba(47,209,141,.13);color:#8fe3bd;border-color:rgba(47,209,141,.28)}
+.bell{cursor:pointer;font:700 10px var(--mono);padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card2);color:var(--dim);text-transform:none}
+.bell.on{color:var(--up);border-color:var(--up)}
+.rrpos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.rr{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px}
+.rr .rt{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.rr .rsym{font:700 12.5px var(--mono);color:var(--ink)}
+.rr .rrv{font:800 14px var(--mono)}
+.rr .rgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;font:700 12px var(--mono);color:var(--ink)}
+.rr .rc small{color:var(--faint);display:block;font:600 8.5px var(--mono);margin-bottom:1px;letter-spacing:.5px}
+.flow{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font:600 12px var(--mono);color:var(--dim)}
+.flow b{color:var(--ink)}
+.fedwrap{display:flex;flex-direction:column;gap:9px}
+.fedmeet{font:600 12px var(--mono);color:var(--dim)}
+.fedmeet b{color:var(--ink)}
+.fedbars{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.fedrow{display:grid;grid-template-columns:82px 1fr 54px;align-items:center;gap:10px;font:700 12px var(--mono)}
+.fedbar{height:17px;border-radius:5px;background:var(--track);overflow:hidden}
+.fedbar i{display:block;height:100%;border-radius:5px;transition:width .4s}
+.fednote{font:700 12px var(--mono);margin-top:4px}
+
+.foot{margin-top:16px;text-align:center;color:var(--faint);font-size:11px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <span class="coin">Au</span>
+      <div><b>ข่าวสาร &amp; รายใหญ่</b><div style="font-size:11px;color:var(--faint);margin-top:1px">JANIE · เฉพาะข่าว ไม่มีเครื่องมือเทรด</div></div>
+    </div>
+    <div class="pills">
+      <span class="clock" id="clock">--:--:--</span>
+      <button class="themebtn" title="สลับธีม ขาว/น้ำเงิน" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme===&quot;light&quot;?&quot;dark&quot;:&quot;light&quot;)"><span class="d">☀ ขาว</span><span class="l">🌙 เข้ม</span></button>
+    </div>
+  </div>
+
+  <div class="grid"><div class="card">
+    <h2>🏛️ FedWatch · โอกาสดอกเบี้ย <span class="chip" id="fedUpd">—</span></h2>
+    <div class="fedwrap">
+      <div class="fedmeet" id="fedMeet">รอข้อมูล FedWatch</div>
+      <div class="fedbars" id="fedBars"></div>
+      <div class="fednote" id="fedNote"></div>
+    </div>
+  </div></div>
+
+</div>
+
+<script>
+/* ===== 📅 ปฏิทินข่าว · ห้ามเทรด — add-on อ่านอย่างเดียว (ข้อมูลฝังในไฟล์) =====
+   เหตุผล: บัญชี prop (Topstep) ตายเพราะเทรดตอนข่าวออกมากที่สุด —
+   สเปรดถ่าง + ราคากระโดด → ชน daily loss limit ในไม้เดียว
+   ✏️ แก้/เพิ่มข่าวได้ที่ตัวแปร EVENTS ด้านล่าง (เวลาไทย +07:00) */
+(function(){
+  var EVENTS = [
+    // ── FOMC (ยืนยันจากแท็บ CME FedWatch) · แถลง 14:00 ET
+    { t:'2026-07-30T01:00+07:00', n:'FOMC · แถลงดอกเบี้ย',            lv:3, block:'20:00–02:30' },
+    { t:'2026-09-17T01:00+07:00', n:'FOMC · ดอกเบี้ย + dot plot ใหม่', lv:3, block:'20:00–02:30' },
+    { t:'2026-10-29T01:00+07:00', n:'FOMC · แถลงดอกเบี้ย',            lv:3, block:'20:00–02:30' },
+    { t:'2026-12-10T02:00+07:00', n:'FOMC · ดอกเบี้ย + dot plot ใหม่', lv:3, block:'21:00–03:30' },
+    // ── NFP จ้างงาน (ศุกร์แรกของเดือน · 08:30 ET)
+    { t:'2026-08-07T19:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'19:00–20:30' },
+    { t:'2026-09-04T19:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'19:00–20:30' },
+    { t:'2026-10-02T19:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'19:00–20:30' },
+    { t:'2026-11-06T20:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'20:00–21:30' },
+    { t:'2026-12-04T20:30+07:00', n:'NFP · จ้างงานนอกภาคเกษตร', lv:3, block:'20:00–21:30' }
+    // ── CPI: ยังไม่ใส่เพราะยังไม่ยืนยันวัน (BLS ออกกลางเดือน 08:30 ET = 19:30 น. ไทย)
+    //    เช็ควันจริงที่ bls.gov/schedule แล้วเพิ่มบรรทัดแบบนี้:
+    //  ,{ t:'2026-08-12T19:30+07:00', n:'CPI · เงินเฟ้อ', lv:3, block:'19:00–20:30' }
+  ];
+
+  var css = document.createElement("style");
+  css.textContent =
+    ".ecwarn{padding:11px 14px;border-radius:12px;font:800 13px var(--mono);margin-bottom:12px;line-height:1.6}"+
+    ".ecwarn.red{background:rgba(240,96,74,.15);border:1px solid rgba(240,96,74,.55);color:var(--down)}"+
+    ".ecwarn.amber{background:rgba(232,183,63,.13);border:1px solid rgba(232,183,63,.5);color:var(--gold2)}"+
+    ".eclist{display:flex;flex-direction:column;gap:9px}"+
+    ".ecrow{display:grid;grid-template-columns:10px 1fr auto;gap:12px;align-items:center;padding:10px 13px;"+
+      "border-radius:12px;background:var(--card2);border:1px solid var(--line)}"+
+    ".ecrow.hot{border-color:rgba(240,96,74,.5);background:rgba(240,96,74,.07)}"+
+    ".ecdot{width:10px;height:10px;border-radius:99px}"+
+    ".ecname{font:700 13px var(--mono);color:var(--ink)}"+
+    ".ecwhen{font-size:11.5px;color:var(--dim);margin-top:2px}"+
+    ".ecblk{font:700 10.5px var(--mono);color:var(--down);margin-top:3px;letter-spacing:.2px}"+
+    ".eccd{font:800 14px var(--mono);text-align:right;white-space:nowrap}"+
+    ".ecfoot{margin-top:12px;font-size:11.5px;color:var(--faint);line-height:1.75}";
+  document.head.appendChild(css);
+
+  var g = document.createElement("div");
+  g.className = "grid";
+  g.innerHTML = '<div class="card">'
+    + '<h2>📅 ปฏิทินข่าว · ห้ามเทรด <span class="chip" id="ecChip">—</span></h2>'
+    + '<div class="ecwarn" id="ecWarn" style="display:none"></div>'
+    + '<div class="eclist" id="ecList"></div>'
+    + '<div class="ecfoot" id="ecFoot"></div></div>';
+  var wrap = document.querySelector(".wrap");
+  var firstGrid = wrap ? wrap.querySelector(".grid") : null;
+  if(wrap && firstGrid) wrap.insertBefore(g, firstGrid); else if(wrap) wrap.appendChild(g);
+
+  function fmt(d){
+    return d.toLocaleString('th-TH', { timeZone:'Asia/Bangkok', weekday:'short',
+      day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) + ' น.';
+  }
+  function cd(ms){
+    if(ms < 0) return 'กำลังเกิด';
+    var m = Math.floor(ms/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+    if(d > 0) return d + ' วัน ' + (h%24) + ' ชม.';
+    if(h > 0) return h + ' ชม. ' + (m%60) + ' นาที';
+    return m + ' นาที';
+  }
+
+  /* ── ดึงปฏิทินสดจาก ForexFactory (ผ่าน CORS proxy) มาเสริม ──
+     พร็อกซีฟรีล่มได้ → ถ้าดึงไม่ได้ก็ใช้ EVENTS ที่ฝังไว้ต่อ ไม่พัง */
+  var LIVE = [], liveOK = false;
+  function pullFF(){
+    var src = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+    fetch('https://corsproxy.io/?url=' + encodeURIComponent(src), {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!Array.isArray(d)) return;
+        LIVE = d.filter(function(e){ return e.country === 'USD' && e.impact === 'High'; })
+                .map(function(e){
+                  var ts = new Date(e.date).getTime();
+                  return { t:e.date, n:'🇺🇸 ' + e.title, ts:ts, live:true,
+                           block:blk(ts), fc:e.forecast || '', pv:e.previous || '' };
+                })
+                .filter(function(x){ return isFinite(x.ts); });
+        liveOK = true; tick();
+      })
+      .catch(function(){ liveOK = false; });
+  }
+  function hhmm(ms){
+    return new Date(ms).toLocaleTimeString('th-TH',
+      { timeZone:'Asia/Bangkok', hour:'2-digit', minute:'2-digit' });
+  }
+  function blk(ts){ return hhmm(ts - 30*60e3) + '–' + hhmm(ts + 60*60e3); }
+
+  function tick(){
+    var list = document.getElementById('ecList'); if(!list) return;
+    var now = Date.now();
+    // รวมข่าวฝังในไฟล์ + ข่าวสดจาก FF แล้วตัดตัวซ้ำ (ห่างกัน < 45 นาที = ตัวเดียวกัน · ใช้ของสด)
+    var base = EVENTS.map(function(e){ return { e:e, ts:new Date(e.t).getTime() }; });
+    var live = LIVE.map(function(x){ return { e:x, ts:x.ts }; });
+    var merged = live.concat(base.filter(function(b){
+      return !live.some(function(l){ return Math.abs(l.ts - b.ts) < 45*60e3; });
+    }));
+    // ยุบข่าวที่ออกพร้อมกัน (FOMC มักแตกเป็น Federal Funds Rate + Statement) ให้เหลือแถวเดียว
+    var byTime = {};
+    merged.filter(function(x){ return x.ts > now - 2*3600e3; }).forEach(function(x){
+      var k = Math.round(x.ts / 300000);           // จัดกลุ่มทุก 5 นาที
+      if(byTime[k]) byTime[k].names.push(x.e.n);
+      else byTime[k] = { ts:x.ts, e:x.e, names:[x.e.n] };
+    });
+    var up = Object.keys(byTime).map(function(k){ return byTime[k]; })
+                   .sort(function(a,b){ return a.ts - b.ts; })
+                   .slice(0, 5);
+
+    if(!up.length){
+      list.innerHTML = '<div class="ecwhen">ไม่มีข่าวในรายการ — เพิ่มได้ที่ตัวแปร EVENTS ในไฟล์</div>';
+      document.getElementById('ecChip').textContent = '—'; return;
+    }
+
+    var next = up[0], diff = next.ts - now;
+    document.getElementById('ecChip').textContent =
+      'ถัดไปอีก ' + cd(diff) + (liveOK ? ' · ● FF สด' : '');
+
+    list.innerHTML = up.map(function(x){
+      var dt = x.ts - now, hot = dt < 24*3600e3;
+      var col = hot ? 'var(--down)' : (dt < 72*3600e3 ? 'var(--gold2)' : 'var(--faint)');
+      var nm = x.names ? x.names.join(' · ') : x.e.n;
+      if(nm.length > 78) nm = nm.slice(0, 76) + '…';
+      return '<div class="ecrow' + (hot ? ' hot' : '') + '">'
+        + '<span class="ecdot" style="background:' + col + '"></span>'
+        + '<div><div class="ecname">' + nm + '</div>'
+        + '<div class="ecwhen">' + fmt(new Date(x.ts)) + '</div>'
+        + (x.e.block ? '<div class="ecblk">⛔ ห้ามเทรด ' + x.e.block + '</div>' : '')
+        + '</div>'
+        + '<div class="eccd" style="color:' + col + '">' + cd(dt) + '</div></div>';
+    }).join('');
+
+    // แถบเตือนใหญ่
+    var w = document.getElementById('ecWarn');
+    if(diff < 0){
+      w.style.display=''; w.className='ecwarn red';
+      w.innerHTML = '🔴 <b>' + next.e.n + ' กำลังออก</b> — หยุดเทรด รอราคานิ่งอย่างน้อย 30 นาที';
+    } else if(diff < 30*60e3){
+      w.style.display=''; w.className='ecwarn red';
+      w.innerHTML = '🔴 <b>อีก ' + cd(diff) + ' ' + next.e.n + '</b> — ห้ามเปิดไม้ใหม่ · ไม้ที่ถืออยู่ให้ปิดหรือลดขนาด';
+    } else if(diff < 24*3600e3){
+      w.style.display=''; w.className='ecwarn amber';
+      w.innerHTML = '🟡 <b>วันนี้มีข่าวใหญ่</b> — ' + next.e.n + ' อีก ' + cd(diff) + ' · วางแผนให้จบก่อนเวลานั้น';
+    } else w.style.display='none';
+
+    document.getElementById('ecFoot').innerHTML =
+      'บัญชี prop ตายเพราะเทรดตอนข่าวมากที่สุด — สเปรดถ่าง + ราคากระโดด → ชน daily loss limit ในไม้เดียว<br>'
+      + (liveOK
+          ? '🇺🇸 ข่าว USD ระดับ High ดึงสดจาก ForexFactory ทุก 15 นาที (รวม CPI อัตโนมัติ) + FOMC/NFP ฝังในไฟล์เป็นตัวสำรอง'
+          : '⚠️ ต่อ ForexFactory ไม่ได้ (พร็อกซีล่ม) — กำลังใช้ FOMC/NFP ที่ฝังในไฟล์ · <b>ช่วงนี้เช็ค CPI เองที่ forexfactory.com</b>');
+  }
+  tick(); pullFF();
+  setInterval(tick, 30000);
+  setInterval(function(){ if(document.visibilityState === 'visible') pullFF(); }, 15*60e3);
+})();
+</script>
+
+<script>
+/* 🏛️ FedWatch · โอกาสดอกเบี้ยประชุมหน้า — ข้อมูลฝังในจอ (แก้ FEDWATCH ด้านล่างได้เลย). ลด=หนุนทอง / ขึ้น=กดทอง. */
+(function(){
+  /* ========================================================================
+     ✏️ แก้ตรงนี้เมื่อ FedWatch เปลี่ยน (ดูจากเว็บ CME FedWatch)
+     ค่า = โอกาส % ของกล่อง EASE / NO CHANGE / HIKE (มุมขวาบน)
+     ======================================================================== */
+  var FEDWATCH = {
+    current: '350-375',                                   // ดอกเบี้ยปัจจุบัน
+    updated: '9 ก.ย. 2026 · 11:34 CT',
+    // ประชุมแรก = โชว์บาร์เต็ม · ที่เหลือ = บรรทัดย่อ (ใส่ได้หลายอัน)
+    meetings: [
+      { date:'16 ก.ย. 2026', ease:0, hold:38.8, hike:61.2 },
+      { date:'28 ต.ค. 2026', ease:0, hold:27.6, hike:72.4, note:'ขึ้น 2 ครั้ง 17.6%' }
+    ]
+  };
+  function num(v){ var n=Number(v); return isNaN(n)?0:n; }
+  function render(){
+    var box=document.getElementById('fedBars'); if(!box) return;
+    var meet=document.getElementById('fedMeet'), note=document.getElementById('fedNote'), upd=document.getElementById('fedUpd');
+    var MS = FEDWATCH.meetings || (FEDWATCH.meeting ? [FEDWATCH.meeting] : []);
+    var m = MS[0];
+    if(!m || m.hold==null || m.hike==null){ box.innerHTML=''; note.textContent='';
+      meet.innerHTML='รอเลข FedWatch (แก้ FEDWATCH ในไฟล์)'; upd.textContent='—'; return; }
+    var ease=num(m.ease), hold=num(m.hold), hike=num(m.hike);
+    meet.innerHTML='ประชุม <b>'+(m.date||'—')+'</b>'+(FEDWATCH.current?' · ดอกเบี้ยปัจจุบัน '+FEDWATCH.current:'');
+    upd.textContent= FEDWATCH.updated?('อัปเดต '+FEDWATCH.updated):'manual';
+    var rows=[['ลด (ease)',ease,'var(--up)'],['คง (hold)',hold,'var(--gold2)'],['ขึ้น (hike)',hike,'var(--down)']];
+    box.innerHTML=rows.map(function(r){
+      return '<div class="fedrow"><span style="color:'+r[2]+'">'+r[0]+'</span>'+
+        '<div class="fedbar"><i style="width:'+Math.max(1.5,Math.min(100,r[1]))+'%;background:'+r[2]+'"></i></div>'+
+        '<span style="text-align:right;color:'+r[2]+'">'+r[1].toFixed(0)+'%</span></div>'; }).join('');
+    /* ประชุมถัดๆ ไป — บรรทัดย่อ บอกเฉพาะผลที่ตลาดให้น้ำหนักสูงสุด
+       (เห็น "เส้นทางดอกเบี้ย" โดยไม่รกเหมือนโชว์บาร์ทุกประชุม) */
+    if(MS.length > 1){
+      box.innerHTML += '<div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line)">'
+        + MS.slice(1).map(function(x){
+            var e=num(x.ease), ho=num(x.hold), hi=num(x.hike);
+            var win = (hi>=ho&&hi>=e) ? ['ขึ้น',hi,'var(--down)']
+                    : (e>=ho&&e>=hi)  ? ['ลด',e,'var(--up)']
+                                      : ['คง',ho,'var(--gold2)'];
+            return '<div class="fedrow" style="margin:5px 0">'
+              + '<span style="color:var(--dim)">'+(x.date||'—')+'</span>'
+              + '<div class="fedbar"><i style="width:'+Math.max(1.5,Math.min(100,win[1]))
+              + '%;background:'+win[2]+'"></i></div>'
+              + '<span style="text-align:right;color:'+win[2]+'">'+win[0]+' '+win[1].toFixed(0)+'%</span></div>'
+              + (x.note ? '<div style="font:600 10.5px var(--mono);color:var(--faint);margin:-2px 0 6px 0">↳ '+x.note+'</div>' : '');
+          }).join('') + '</div>';
+    }
+
+    var nc, nt;
+    if(hike>=hold&&hike>=ease){ nc='var(--down)'; nt='ตลาดคาด "ขึ้นดอกเบี้ย" '+hike.toFixed(0)+'% → กดดันทอง (bearish)'; }
+    else if(ease>=hold&&ease>=hike){ nc='var(--up)'; nt='ตลาดคาด "ลดดอกเบี้ย" '+ease.toFixed(0)+'% → หนุนทอง (bullish)'; }
+    else { nc='var(--gold2)'; nt='ตลาดคาด "คงดอกเบี้ย" '+hold.toFixed(0)+'% → ทองไซด์เวย์'; }
+    // ถ้าประชุมถัดไปสวนทางกับประชุมหน้า = เตือนว่าภาพกลาง-ยาวต่างจากภาพสั้น
+    if(MS.length>1){
+      var n2=MS[1], h2=num(n2.hike), o2=num(n2.hold);
+      if(h2>o2 && hike<hold) nt += ' · ⚠️ แต่ ' + (n2.date||'') + ' ตลาดคาดขึ้น ' + h2.toFixed(0) + '% → ภาพกลางกดทอง';
+    }
+    note.style.color=nc; note.innerHTML=nt;
+  }
+  render();
+})();
+</script>
+
+<script>
+/* ===== COT · รายใหญ่ (CFTC Disaggregated · GOLD 088691) — add-on อ่านอย่างเดียว ===== */
+(function(){
+  var st=document.createElement("style");
+  st.textContent=
+    ".cotwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}"+
+    "@media(max-width:900px){.cotwrap{grid-template-columns:1fr}}"+
+    ".cotbig{font:800 40px/1 var(--mono);letter-spacing:-1px}"+
+    ".cotbig small{display:block;font:600 10px/1 var(--mono);color:var(--faint);letter-spacing:.14em;margin-bottom:7px}"+
+    ".cotsub{color:var(--dim);font-size:12px;margin-top:9px}"+
+    ".cotmeter{height:9px;border-radius:99px;background:var(--track);position:relative;margin-top:12px}"+
+    ".cotmeter i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,#2fd18d,#e8b73f,#f0604a)}"+
+    ".cotmeter b{position:absolute;top:-4px;width:3px;height:17px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 2px var(--card)}"+
+    ".cotrow{display:flex;align-items:center;gap:9px;margin:8px 0;font-size:12px}"+
+    ".cotrow em{width:104px;color:var(--dim);font-style:normal;font-weight:600;text-align:right;flex:none}"+
+    ".cotbar{flex:1;height:15px;background:var(--track);border-radius:5px;position:relative}"+
+    ".cotbar u{position:absolute;top:0;bottom:0;border-radius:4px;text-decoration:none}"+
+    ".cotbar s{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line);text-decoration:none}"+
+    ".cotval{width:74px;text-align:right;font:700 12px var(--mono);flex:none}"+
+    ".cottiles{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:14px}"+
+    "@media(max-width:900px){.cottiles{grid-template-columns:repeat(2,1fr)}}"+
+    ".cottile{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}"+
+    ".cottile small{display:block;color:var(--faint);font-size:9.5px;letter-spacing:.07em;margin-bottom:4px;line-height:1.3}"+
+    ".cottile b{display:block;font:700 16px/1.2 var(--mono)}"+
+    ".cottile i{display:block;font-style:normal;color:var(--faint);font-size:10.5px;margin-top:3px}"+
+    ".cotmode{margin-top:11px;padding:10px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;line-height:1.7}"+
+    ".cotnote{margin-top:11px;padding:11px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;line-height:1.7}";
+  document.head.appendChild(st);
+
+  var g=document.createElement("div"); g.className="grid";
+  g.innerHTML='<div class="card"><h2>🏛️ COT · รายใหญ่ถือทองอยู่ตรงไหน <span class="chip" id="cotChip">กำลังโหลด…</span></h2><div id="cotBody" style="color:var(--dim);font-size:12px">กำลังดึงข้อมูลจาก CFTC…</div></div>';
+  var grids=document.querySelectorAll(".wrap > .grid");
+  var anchor=grids[6]||null;
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(g,anchor);
+  else document.querySelector(".wrap").appendChild(g);
+
+  var N=function(x){return Number(x||0);};
+  var K=function(v){return (v<0?"−":"+")+Math.abs(Math.round(v)).toLocaleString("en-US");};
+  var TM=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  /* CFTC ส่ง "2026-09-01T00:00:00.000" มาโดยไม่มี Z ต่อท้าย JS จึงอ่านเป็นเวลาท้องถิ่น
+     พอดึงกลับด้วย getUTC* ในไทย (+7) วันที่จะถอยไปหนึ่งวันเสมอ — บังคับให้เป็น UTC ก่อน */
+  function thDate(iso){var d=new Date(String(iso).slice(0,10)+"T00:00:00Z");return d.getUTCDate()+" "+TM[d.getUTCMonth()]+" "+(d.getUTCFullYear()+543);}
+
+  function spark(v,w,h){
+    var a=v.concat([0]), mn=Math.min.apply(null,a), mx=Math.max.apply(null,a), sp=(mx-mn)||1;
+    var X=function(i){return 4+i*(w-8)/((v.length-1)||1);};
+    var Y=function(q){return h-8-(q-mn)/sp*(h-16);};
+    var d=v.map(function(q,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(q).toFixed(1);}).join(" ");
+    var area=d+" L"+X(v.length-1).toFixed(1)+" "+Y(mn).toFixed(1)+" L"+X(0).toFixed(1)+" "+Y(mn).toFixed(1)+" Z";
+    var zy=Y(0).toFixed(1);
+    return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="width:100%;height:'+h+'px;display:block">'
+      +'<defs><linearGradient id="cotgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8b73f" stop-opacity=".30"/><stop offset="1" stop-color="#e8b73f" stop-opacity="0"/></linearGradient></defs>'
+      +'<path d="'+area+'" fill="url(#cotgr)"/>'
+      +'<line x1="0" y1="'+zy+'" x2="'+w+'" y2="'+zy+'" stroke="var(--line)" stroke-dasharray="3 3"/>'
+      +'<path d="'+d+'" fill="none" stroke="#e8b73f" stroke-width="2" stroke-linejoin="round"/>'
+      +'<circle cx="'+X(v.length-1).toFixed(1)+'" cy="'+Y(v[v.length-1]).toFixed(1)+'" r="3.5" fill="#e8b73f"/></svg>';
+  }
+  function row(lab,val,mx){
+    var pct=Math.min(50,Math.abs(val)/(mx||1)*50);
+    var col=val>=0?"#2fd18d":"#f0604a";
+    var s=val>=0?("left:50%;width:"+pct.toFixed(1)+"%"):("right:50%;width:"+pct.toFixed(1)+"%");
+    return '<div class="cotrow"><em>'+lab+'</em><div class="cotbar"><s></s><u style="'+s+';background:'+col+'"></u></div><div class="cotval" style="color:'+col+'">'+K(val)+'</div></div>';
+  }
+
+  var CURL="https://publicreporting.cftc.gov/resource/72hh-3qpy.json"
+    +"?$select=report_date_as_yyyy_mm_dd,open_interest_all,m_money_positions_long_all,m_money_positions_short_all,m_money_positions_spread,"
+    +"prod_merc_positions_long,prod_merc_positions_short,swap_positions_long_all,swap__positions_short_all,"
+    +"other_rept_positions_long,other_rept_positions_short,nonrept_positions_long_all,nonrept_positions_short_all"
+    +"&$where=cftc_contract_market_code='088691'&$order=report_date_as_yyyy_mm_dd DESC&$limit=160";
+
+  /* ชุด "ฟิวเจอร์ส+ออปชั่นรวม" — เอามาลบชุดฟิวเจอร์สเพื่อให้ได้ส่วนที่เป็นออปชั่นล้วน
+     ตรวจกับรายงาน 1 ก.ย. 69 แล้ว: รวม 140,811 − ฟิวเจอร์ส 136,771 = 4,040 ตรงกับ QuikStrike */
+  var CURL_COMB="https://publicreporting.cftc.gov/resource/kh3c-gbw2.json"
+    +"?$select=report_date_as_yyyy_mm_dd,m_money_positions_long_all,m_money_positions_short_all"
+    +"&$where=cftc_contract_market_code='088691'&$order=report_date_as_yyyy_mm_dd DESC&$limit=8";
+
+  function render(rows, comb){
+    var body=document.getElementById("cotBody"), chip=document.getElementById("cotChip");
+    if(!body) return;
+    if(!rows||!rows.length){ body.textContent="ดึงข้อมูล COT ไม่ได้ (CFTC ไม่ตอบ)"; return; }
+    var mmNet=function(r){return N(r.m_money_positions_long_all)-N(r.m_money_positions_short_all);};
+    var c=rows[0], p=rows[1]||c;
+    var net=mmNet(c), chg=net-mmNet(p);
+    var m4=rows[4]?net-mmNet(rows[4]):0;
+    var all=rows.map(mmNet);
+    var pctile=Math.round(all.filter(function(q){return q<=net;}).length/all.length*100);
+    var ser=all.slice(0,52).reverse();
+
+    var pm=N(c.prod_merc_positions_long)-N(c.prod_merc_positions_short);
+    var sw=N(c.swap_positions_long_all)-N(c.swap__positions_short_all);
+    var ot=N(c.other_rept_positions_long)-N(c.other_rept_positions_short);
+    var nr=N(c.nonrept_positions_long_all)-N(c.nonrept_positions_short_all);
+    var mx=Math.max(Math.abs(net),Math.abs(pm),Math.abs(sw),Math.abs(ot),Math.abs(nr));
+
+    /* net long ที่ลดลง ยังบอกไม่ได้ว่า "ถอนตัว" หรือแค่ "หยุดเดิมพันทิศทาง"
+       ถ้าขนาดสถานะรวมเท่าเดิมแต่ spread โต = ยังอยู่ในตลาด แค่ตัดความเสี่ยงทางทิ้ง
+       (เคสจริง 1 ก.ย. 69: net −7,976 แต่ spread +11,013 ขนาดรวมเปลี่ยน −0.6%) */
+    var spr=N(c.m_money_positions_spread), sprChg=spr-N(p.m_money_positions_spread);
+    var gross=function(r){return N(r.m_money_positions_long_all)+N(r.m_money_positions_short_all)+N(r.m_money_positions_spread);};
+    var grNow=gross(c), grPrev=gross(p), grPct=grPrev?((grNow-grPrev)/grPrev*100):0;
+    var oi=N(c.open_interest_all), oiChg=oi-N(p.open_interest_all);
+
+    var optNet=null, optChg=null;
+    if(comb && comb.length){
+      var byD={};
+      comb.forEach(function(r){ byD[String(r.report_date_as_yyyy_mm_dd).slice(0,10)]=N(r.m_money_positions_long_all)-N(r.m_money_positions_short_all); });
+      var kN=String(c.report_date_as_yyyy_mm_dd).slice(0,10), kP=String(p.report_date_as_yyyy_mm_dd).slice(0,10);
+      if(byD[kN]!=null){
+        optNet=byD[kN]-net;
+        if(byD[kP]!=null) optChg=optNet-(byD[kP]-mmNet(p));
+      }
+    }
+
+    var mode;
+    if(chg<0 && sprChg>0 && Math.abs(grPct)<3)
+      mode="🔀 <b>ปิดสวิตช์ทิศทาง ไม่ใช่ถอนตัว</b> — ลดฝั่งซื้อ "+K(chg)+" แต่ย้ายไป spread "+K(sprChg)+" ขนาดสถานะรวมเปลี่ยนแค่ "+grPct.toFixed(1)+"% แปลว่ากองทุน<b>ยังอยู่ในตลาด</b> แต่หยุดเดิมพันทิศทางชั่วคราว";
+    else if(chg<0 && grPct<=-3)
+      mode="🚪 <b>ถอนเงินออกจริง</b> — ลดฝั่งซื้อ "+K(chg)+" และขนาดสถานะรวมหดลง "+grPct.toFixed(1)+"% (ไม่ใช่แค่ย้ายไป spread)";
+    else if(chg>0 && sprChg<0)
+      mode="🎯 <b>กลับมาเดิมพันทิศทาง</b> — เพิ่มฝั่งซื้อ "+K(chg)+" พร้อมคลาย spread "+K(sprChg);
+    else if(chg>0)
+      mode="📈 <b>เพิ่มสถานะทิศทาง</b> "+K(chg)+" สัญญา (spread "+K(sprChg)+")";
+    else
+      mode="สัปดาห์นี้แทบไม่ขยับ (spread "+K(sprChg)+")";
+
+    var tile=function(lab,val,sub,col){
+      return '<div class="cottile"><small>'+lab+'</small><b'+(col?' style="color:'+col+'"':'')+'>'+val+'</b><i>'+sub+'</i></div>';
+    };
+    var xtra='<div class="cottiles">'
+      +tile("SPREAD · ไม่เดิมพันทิศทาง", spr.toLocaleString("en-US"), K(sprChg)+" จากสัปดาห์ก่อน", sprChg>0?"#e8b73f":"var(--ink)")
+      +tile("ขนาดสถานะรวม", grNow.toLocaleString("en-US"), (grPct>=0?"+":"")+grPct.toFixed(1)+"% จากสัปดาห์ก่อน", Math.abs(grPct)<3?"var(--ink)":(grPct<0?"#f0604a":"#2fd18d"))
+      +tile("เฉพาะออปชั่น · NET", optNet==null?"—":K(optNet), optChg==null?"(รวม − ฟิวเจอร์ส)":K(optChg)+" จากสัปดาห์ก่อน", optNet==null?"var(--faint)":(optNet>=0?"#2fd18d":"#f0604a"))
+      +tile("OPEN INTEREST", oi.toLocaleString("en-US"), K(oiChg)+" จากสัปดาห์ก่อน", oiChg>=0?"#2fd18d":"#f0604a")
+      +'</div><div class="cotmode">'+mode+'</div>';
+
+    var side=net>0?"ซื้อ (Net Long)":"ขาย (Net Short)";
+    var sc=net>0?"#2fd18d":"#f0604a";
+    var crowd=pctile>=85?"แออัดมาก":pctile>=65?"ค่อนข้างแน่น":pctile>=35?"กลางๆ":pctile>=15?"ค่อนข้างบาง":"บางมาก";
+
+    var t1=net>0
+      ? "กองทุนเก็งกำไร (Managed Money) <b>ถือฝั่งซื้อสุทธิ "+Math.abs(net).toLocaleString("en-US")+" สัญญา</b> — รายใหญ่ยัง<b>อยู่ข้างขาขึ้น</b>"
+      : "กองทุนเก็งกำไร <b>ถือฝั่งขายสุทธิ "+Math.abs(net).toLocaleString("en-US")+" สัญญา</b> — รายใหญ่<b>อยู่ข้างขาลง</b>";
+    var t2=chg>0?"สัปดาห์ล่าสุด <b style='color:#2fd18d'>เพิ่มฝั่งซื้อ "+K(chg)+"</b> สัญญา (สะสมต่อ)"
+      :chg<0?"สัปดาห์ล่าสุด <b style='color:#f0604a'>ลดฝั่งซื้อ "+K(chg)+"</b> สัญญา (เริ่มขายทำกำไร)"
+      :"สัปดาห์ล่าสุดแทบไม่ขยับ";
+    var t4=m4>0?"4 สัปดาห์: <b style='color:#2fd18d'>สะสมเพิ่ม "+K(m4)+"</b>":m4<0?"4 สัปดาห์: <b style='color:#f0604a'>ลดของ "+K(m4)+"</b>":"4 สัปดาห์: ทรงตัว";
+    var t3;
+    if(pctile>=85) t3="⚠️ ระดับนี้<b>สูงกว่า "+pctile+"% ของ 3 ปีที่ผ่านมา</b> — ฝั่งซื้อแออัด คนที่จะซื้อ ซื้อไปเกือบหมดแล้ว เวลากลับตัวมักลงแรงและเร็ว → ถ้าจะเก็บยาว ควร<b>ทยอยเข้า</b> อย่าเข้าทีเดียว";
+    else if(pctile<=15) t3="🟢 ระดับนี้<b>ต่ำกว่า "+(100-pctile)+"% ของ 3 ปี</b> — รายใหญ่ยังถือน้อย มีที่ว่างให้เข้าซื้ออีกเยอะ ตามสถิติเป็นโซนที่<b>เสี่ยงต่ำกว่า</b>สำหรับการสะสมยาว";
+    else t3="ระดับนี้อยู่ที่ <b>เปอร์เซ็นไทล์ "+pctile+"</b> ของ 3 ปี — ยังไม่สุดโต่งทั้งสองทาง ("+crowd+")";
+
+    if(chip) chip.textContent="ข้อมูล ณ "+thDate(c.report_date_as_yyyy_mm_dd)+" · CFTC รายสัปดาห์";
+    body.innerHTML='<div class="cotwrap"><div>'
+      +'<div class="cotbig"><small>MANAGED MONEY · NET</small><span style="color:'+sc+'">'+K(net)+'</span></div>'
+      +'<div class="cotsub">ฝั่ง<b style="color:'+sc+'">'+side+'</b> · Long '+N(c.m_money_positions_long_all).toLocaleString("en-US")+' / Short '+N(c.m_money_positions_short_all).toLocaleString("en-US")+'</div>'
+      +'<div style="margin-top:16px;color:var(--faint);font-size:11px">ความแออัดเทียบ 3 ปี · <b style="color:var(--ink)">'+pctile+'</b> เปอร์เซ็นไทล์ ('+crowd+')</div>'
+      +'<div class="cotmeter"><i style="width:100%;opacity:.32"></i><b style="left:calc('+pctile+'% - 1.5px)"></b></div>'
+      +'<div style="display:flex;justify-content:space-between;color:var(--faint);font-size:10px;margin-top:5px"><span>ขายสุด</span><span>ปกติ</span><span>ซื้อแออัด</span></div>'
+      +'<div style="margin-top:16px;color:var(--faint);font-size:10.5px;letter-spacing:.1em">NET 52 สัปดาห์</div>'
+      +spark(ser,300,70)
+      +'</div><div>'
+      +'<div style="color:var(--faint);font-size:10.5px;letter-spacing:.1em;margin-bottom:8px">สถานะสุทธิ แยกกลุ่มผู้เล่น</div>'
+      +row("กองทุนเก็งกำไร",net,mx)+row("รายใหญ่อื่น",ot,mx)+row("รายย่อย",nr,mx)+row("ผู้ผลิต/ผู้ค้า",pm,mx)+row("ดีลเลอร์ (Swap)",sw,mx)
+      +'<div style="color:var(--faint);font-size:10.5px;line-height:1.6;margin-top:10px">เขียว = ถือซื้อสุทธิ · แดง = ถือขายสุทธิ · ผู้ผลิต/ดีลเลอร์ติดลบเป็น<b>เรื่องปกติ</b> (เขา hedge ของจริง ไม่ได้เก็งกำไร) — ตัวที่บอกทิศจริงคือ<b>กองทุนเก็งกำไร</b></div>'
+      +'</div></div>'
+      +xtra
+      +'<div class="cotnote">'+t1+'<br>'+t2+' · '+t4+'<br>'+t3+'<br><span style="color:var(--faint);font-size:11px">📅 CFTC ออกทุกวันเสาร์เช้า (เวลาไทย) เป็นสถานะ ณ วันอังคาร → ข้อมูลช้า 3 วัน · ใช้ดู<b>ภาพใหญ่/เก็บยาว</b> ไม่ใช่สัญญาณเข้าออกรายวัน · ไม่ใช่คำแนะนำการลงทุน</span></div>';
+  }
+  function load(){
+    var jf=function(u){ return fetch(u).then(function(r){ return r.json(); }); };
+    /* ชุดรวมเป็นของเสริม ถ้าล่มให้ส่ง [] ไปแทนที่จะทำให้ทั้งการ์ดพัง */
+    Promise.all([ jf(CURL), jf(CURL_COMB).catch(function(){ return []; }) ])
+      .then(function(res){ render(res[0], res[1]); })
+      .catch(function(e){ var b=document.getElementById("cotBody"); if(b) b.textContent="ดึง COT ไม่ได้: "+e.message; });
+  }
+  load(); setInterval(load, 30*60*1000);
+})();
+</script>
+
+<script>
+/* นาฬิกาเวลาไทย — หน้านี้ไม่มีท่อ MT5/JANIE จึงไม่มีไฟสถานะให้กะพริบ */
+(function(){
+  var el=document.getElementById("clock");
+  function tick(){
+    var d=new Date(Date.now()+(new Date().getTimezoneOffset()*60000)+7*3600000);
+    el.textContent=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+":"+("0"+d.getSeconds()).slice(-2);
+  }
+  tick(); setInterval(tick,1000);
+})();
+</script>
+</body>
+</html>
