@@ -1548,7 +1548,14 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     ".cotbar u{position:absolute;top:0;bottom:0;border-radius:4px;text-decoration:none}"+
     ".cotbar s{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line);text-decoration:none}"+
     ".cotval{width:74px;text-align:right;font:700 12px var(--mono);flex:none}"+
-    ".cotnote{margin-top:14px;padding:11px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;line-height:1.7}";
+    ".cottiles{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:14px}"+
+    "@media(max-width:900px){.cottiles{grid-template-columns:repeat(2,1fr)}}"+
+    ".cottile{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}"+
+    ".cottile small{display:block;color:var(--faint);font-size:9.5px;letter-spacing:.07em;margin-bottom:4px;line-height:1.3}"+
+    ".cottile b{display:block;font:700 16px/1.2 var(--mono)}"+
+    ".cottile i{display:block;font-style:normal;color:var(--faint);font-size:10.5px;margin-top:3px}"+
+    ".cotmode{margin-top:11px;padding:10px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;line-height:1.7}"+
+    ".cotnote{margin-top:11px;padding:11px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;line-height:1.7}";
   document.head.appendChild(st);
 
   var g=document.createElement("div"); g.className="grid";
@@ -1561,7 +1568,9 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   var N=function(x){return Number(x||0);};
   var K=function(v){return (v<0?"−":"+")+Math.abs(Math.round(v)).toLocaleString("en-US");};
   var TM=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  function thDate(iso){var d=new Date(iso);return d.getUTCDate()+" "+TM[d.getUTCMonth()]+" "+(d.getUTCFullYear()+543);}
+  /* CFTC ส่ง "2026-09-01T00:00:00.000" มาโดยไม่มี Z ต่อท้าย JS จึงอ่านเป็นเวลาท้องถิ่น
+     พอดึงกลับด้วย getUTC* ในไทย (+7) วันที่จะถอยไปหนึ่งวันเสมอ — บังคับให้เป็น UTC ก่อน */
+  function thDate(iso){var d=new Date(String(iso).slice(0,10)+"T00:00:00Z");return d.getUTCDate()+" "+TM[d.getUTCMonth()]+" "+(d.getUTCFullYear()+543);}
 
   function spark(v,w,h){
     var a=v.concat([0]), mn=Math.min.apply(null,a), mx=Math.max.apply(null,a), sp=(mx-mn)||1;
@@ -1585,12 +1594,18 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
   }
 
   var CURL="https://publicreporting.cftc.gov/resource/72hh-3qpy.json"
-    +"?$select=report_date_as_yyyy_mm_dd,open_interest_all,m_money_positions_long_all,m_money_positions_short_all,"
+    +"?$select=report_date_as_yyyy_mm_dd,open_interest_all,m_money_positions_long_all,m_money_positions_short_all,m_money_positions_spread,"
     +"prod_merc_positions_long,prod_merc_positions_short,swap_positions_long_all,swap__positions_short_all,"
     +"other_rept_positions_long,other_rept_positions_short,nonrept_positions_long_all,nonrept_positions_short_all"
     +"&$where=cftc_contract_market_code='088691'&$order=report_date_as_yyyy_mm_dd DESC&$limit=160";
 
-  function render(rows){
+  /* ชุด "ฟิวเจอร์ส+ออปชั่นรวม" — เอามาลบชุดฟิวเจอร์สเพื่อให้ได้ส่วนที่เป็นออปชั่นล้วน
+     ตรวจกับรายงาน 1 ก.ย. 69 แล้ว: รวม 140,811 − ฟิวเจอร์ส 136,771 = 4,040 ตรงกับ QuikStrike */
+  var CURL_COMB="https://publicreporting.cftc.gov/resource/kh3c-gbw2.json"
+    +"?$select=report_date_as_yyyy_mm_dd,m_money_positions_long_all,m_money_positions_short_all"
+    +"&$where=cftc_contract_market_code='088691'&$order=report_date_as_yyyy_mm_dd DESC&$limit=8";
+
+  function render(rows, comb){
     var body=document.getElementById("cotBody"), chip=document.getElementById("cotChip");
     if(!body) return;
     if(!rows||!rows.length){ body.textContent="ดึงข้อมูล COT ไม่ได้ (CFTC ไม่ตอบ)"; return; }
@@ -1607,6 +1622,47 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
     var ot=N(c.other_rept_positions_long)-N(c.other_rept_positions_short);
     var nr=N(c.nonrept_positions_long_all)-N(c.nonrept_positions_short_all);
     var mx=Math.max(Math.abs(net),Math.abs(pm),Math.abs(sw),Math.abs(ot),Math.abs(nr));
+
+    /* net long ที่ลดลง ยังบอกไม่ได้ว่า "ถอนตัว" หรือแค่ "หยุดเดิมพันทิศทาง"
+       ถ้าขนาดสถานะรวมเท่าเดิมแต่ spread โต = ยังอยู่ในตลาด แค่ตัดความเสี่ยงทางทิ้ง
+       (เคสจริง 1 ก.ย. 69: net −7,976 แต่ spread +11,013 ขนาดรวมเปลี่ยน −0.6%) */
+    var spr=N(c.m_money_positions_spread), sprChg=spr-N(p.m_money_positions_spread);
+    var gross=function(r){return N(r.m_money_positions_long_all)+N(r.m_money_positions_short_all)+N(r.m_money_positions_spread);};
+    var grNow=gross(c), grPrev=gross(p), grPct=grPrev?((grNow-grPrev)/grPrev*100):0;
+    var oi=N(c.open_interest_all), oiChg=oi-N(p.open_interest_all);
+
+    var optNet=null, optChg=null;
+    if(comb && comb.length){
+      var byD={};
+      comb.forEach(function(r){ byD[String(r.report_date_as_yyyy_mm_dd).slice(0,10)]=N(r.m_money_positions_long_all)-N(r.m_money_positions_short_all); });
+      var kN=String(c.report_date_as_yyyy_mm_dd).slice(0,10), kP=String(p.report_date_as_yyyy_mm_dd).slice(0,10);
+      if(byD[kN]!=null){
+        optNet=byD[kN]-net;
+        if(byD[kP]!=null) optChg=optNet-(byD[kP]-mmNet(p));
+      }
+    }
+
+    var mode;
+    if(chg<0 && sprChg>0 && Math.abs(grPct)<3)
+      mode="🔀 <b>ปิดสวิตช์ทิศทาง ไม่ใช่ถอนตัว</b> — ลดฝั่งซื้อ "+K(chg)+" แต่ย้ายไป spread "+K(sprChg)+" ขนาดสถานะรวมเปลี่ยนแค่ "+grPct.toFixed(1)+"% แปลว่ากองทุน<b>ยังอยู่ในตลาด</b> แต่หยุดเดิมพันทิศทางชั่วคราว";
+    else if(chg<0 && grPct<=-3)
+      mode="🚪 <b>ถอนเงินออกจริง</b> — ลดฝั่งซื้อ "+K(chg)+" และขนาดสถานะรวมหดลง "+grPct.toFixed(1)+"% (ไม่ใช่แค่ย้ายไป spread)";
+    else if(chg>0 && sprChg<0)
+      mode="🎯 <b>กลับมาเดิมพันทิศทาง</b> — เพิ่มฝั่งซื้อ "+K(chg)+" พร้อมคลาย spread "+K(sprChg);
+    else if(chg>0)
+      mode="📈 <b>เพิ่มสถานะทิศทาง</b> "+K(chg)+" สัญญา (spread "+K(sprChg)+")";
+    else
+      mode="สัปดาห์นี้แทบไม่ขยับ (spread "+K(sprChg)+")";
+
+    var tile=function(lab,val,sub,col){
+      return '<div class="cottile"><small>'+lab+'</small><b'+(col?' style="color:'+col+'"':'')+'>'+val+'</b><i>'+sub+'</i></div>';
+    };
+    var xtra='<div class="cottiles">'
+      +tile("SPREAD · ไม่เดิมพันทิศทาง", spr.toLocaleString("en-US"), K(sprChg)+" จากสัปดาห์ก่อน", sprChg>0?"#e8b73f":"var(--ink)")
+      +tile("ขนาดสถานะรวม", grNow.toLocaleString("en-US"), (grPct>=0?"+":"")+grPct.toFixed(1)+"% จากสัปดาห์ก่อน", Math.abs(grPct)<3?"var(--ink)":(grPct<0?"#f0604a":"#2fd18d"))
+      +tile("เฉพาะออปชั่น · NET", optNet==null?"—":K(optNet), optChg==null?"(รวม − ฟิวเจอร์ส)":K(optChg)+" จากสัปดาห์ก่อน", optNet==null?"var(--faint)":(optNet>=0?"#2fd18d":"#f0604a"))
+      +tile("OPEN INTEREST", oi.toLocaleString("en-US"), K(oiChg)+" จากสัปดาห์ก่อน", oiChg>=0?"#2fd18d":"#f0604a")
+      +'</div><div class="cotmode">'+mode+'</div>';
 
     var side=net>0?"ซื้อ (Net Long)":"ขาย (Net Short)";
     var sc=net>0?"#2fd18d":"#f0604a";
@@ -1638,9 +1694,16 @@ setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('th-TH');}
       +row("กองทุนเก็งกำไร",net,mx)+row("รายใหญ่อื่น",ot,mx)+row("รายย่อย",nr,mx)+row("ผู้ผลิต/ผู้ค้า",pm,mx)+row("ดีลเลอร์ (Swap)",sw,mx)
       +'<div style="color:var(--faint);font-size:10.5px;line-height:1.6;margin-top:10px">เขียว = ถือซื้อสุทธิ · แดง = ถือขายสุทธิ · ผู้ผลิต/ดีลเลอร์ติดลบเป็น<b>เรื่องปกติ</b> (เขา hedge ของจริง ไม่ได้เก็งกำไร) — ตัวที่บอกทิศจริงคือ<b>กองทุนเก็งกำไร</b></div>'
       +'</div></div>'
+      +xtra
       +'<div class="cotnote">'+t1+'<br>'+t2+' · '+t4+'<br>'+t3+'<br><span style="color:var(--faint);font-size:11px">📅 CFTC ออกทุกวันเสาร์เช้า (เวลาไทย) เป็นสถานะ ณ วันอังคาร → ข้อมูลช้า 3 วัน · ใช้ดู<b>ภาพใหญ่/เก็บยาว</b> ไม่ใช่สัญญาณเข้าออกรายวัน · ไม่ใช่คำแนะนำการลงทุน</span></div>';
   }
-  function load(){ fetch(CURL).then(function(r){return r.json();}).then(render).catch(function(e){ var b=document.getElementById("cotBody"); if(b) b.textContent="ดึง COT ไม่ได้: "+e.message; }); }
+  function load(){
+    var jf=function(u){ return fetch(u).then(function(r){ return r.json(); }); };
+    /* ชุดรวมเป็นของเสริม ถ้าล่มให้ส่ง [] ไปแทนที่จะทำให้ทั้งการ์ดพัง */
+    Promise.all([ jf(CURL), jf(CURL_COMB).catch(function(){ return []; }) ])
+      .then(function(res){ render(res[0], res[1]); })
+      .catch(function(e){ var b=document.getElementById("cotBody"); if(b) b.textContent="ดึง COT ไม่ได้: "+e.message; });
+  }
   load(); setInterval(load, 30*60*1000);
 })();
 </script>
